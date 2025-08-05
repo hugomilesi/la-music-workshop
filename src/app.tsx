@@ -10,7 +10,7 @@ import ResetPassword from '@/pages/ResetPassword';
 import ConfirmEmail from '@/pages/ConfirmEmail';
 import AuthCallback from '@/pages/AuthCallback';
 
-import AdminDashboard from '@/pages/AdminDashboard';
+import AdminDashboard from '@/pages/admindashboard';
 import WorkshopForm from '@/pages/WorkshopForm';
 import AccountSettings from '@/pages/AccountSettings';
 import AdminRoute from '@/components/AdminRoute';
