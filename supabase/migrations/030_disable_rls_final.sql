@@ -1,0 +1,3 @@
+-- Migração para desabilitar RLS definitivamente na tabela users
+-- Solução temporária para permitir cadastro de usuários
+-- Data: 2025-
