@@ -1,11 +1,43 @@
-# React + TypeScript + Vite
+# La Music Week - Sistema de Inscrições
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema de inscrições para oficinas da La Music Week, desenvolvido com React, TypeScript, Vite e Supabase.
 
-Currently, two official plugins are available:
+## 🚀 Deploy no Vercel
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Pré-requisitos
+1. Conta no Vercel
+2. Projeto Supabase configurado
+3. Conta no Resend para envio de emails
+
+### Configuração das Variáveis de Ambiente
+
+No painel do Vercel, configure as seguintes variáveis de ambiente:
+
+```
+VITE_SUPABASE_URL=https://xfqgcfeoswlkcgdtikco.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmcWdjZmVvc3dsa2NnZHRpa2NvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA1NTUzNjMsImV4cCI6MjA2NjEzMTM2M30.eu-4s7H7nFjGqN4rDPMqNHIrjFys2V9u4zPotH8W3Y0
+VITE_SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmcWdjZmVvc3dsa2NnZHRpa2NvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDU1NTM2MywiZXhwIjoyMDY2MTMxMzYzfQ.zSlz36DiKkMjAyiaJYPeIUpispPd2emykGxD07bP3WI
+VITE_EVOLUTION_API_URL=https://evola.latecnology.com.br/
+VITE_EVOLUTION_API_KEY=61E65C47B0D4-44D1-919D-C6137E824D77
+VITE_EVOLUTION_INSTANCE=Hugo Teste
+```
+
+### Configurações de Build
+
+- **Framework Preset**: Vite
+- **Build Command**: `pnpm build`
+- **Install Command**: `pnpm install --no-frozen-lockfile`
+- **Output Directory**: `dist`
+
+### Funcionalidades
+
+- ✅ Sistema de autenticação com Supabase
+- ✅ Cadastro e login de usuários
+- ✅ Gestão de oficinas por unidade
+- ✅ Sistema de inscrições
+- ✅ Dashboard administrativo
+- ✅ Envio de emails via Edge Function
+- ✅ Integração com Evolution API
 
 ## Expanding the ESLint configuration
 
