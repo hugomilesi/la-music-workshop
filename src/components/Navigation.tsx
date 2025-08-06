@@ -62,7 +62,8 @@ export default function Navigation() {
           {/* Mobile Menu Button - Fixed to the right corner */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden p-2 rounded-lg glass text-white hover:bg-white/20 transition-colors flex-shrink-0"
+            className="md:hidden p-2 rounded-lg glass text-white hover:bg-white/20 transition-colors flex-shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label={isOpen ? 'Fechar menu' : 'Abrir menu'}
           >
             {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -70,7 +71,7 @@ export default function Navigation() {
 
         {/* Mobile Navigation */}
         {isOpen && (
-          <div className="md:hidden py-4 border-t border-white/20 animate-slideDown">
+          <div className="md:hidden py-6 border-t border-white/20 animate-slideDown z-50">
             <div className="flex flex-col space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -79,7 +80,7 @@ export default function Navigation() {
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsOpen(false)}
-                    className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                    className={`flex items-center space-x-3 px-4 py-4 rounded-lg transition-all duration-300 text-base font-medium min-h-[48px] ${
                       isActive(item.path)
                         ? 'bg-white/20 text-white'
                         : 'text-white/80 hover:text-white hover:bg-white/10'
@@ -91,7 +92,9 @@ export default function Navigation() {
                 );
               })}
               
-              <MobileLoginButton onClose={() => setIsOpen(false)} />
+              <div className="pt-2">
+                <MobileLoginButton onClose={() => setIsOpen(false)} />
+              </div>
             </div>
           </div>
         )}
@@ -173,15 +176,24 @@ function MobileLoginButton({ onClose }: { onClose: () => void }) {
 
   if (user) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-3">
+        <div className="px-4 py-3 bg-white/10 rounded-lg">
+          <p className="text-white text-sm font-medium">
+            Olá, {profile?.nome_completo || user.email}
+          </p>
+          {profile?.user_type === 'admin' && (
+            <span className="text-xs text-purple-300">Administrador</span>
+          )}
+        </div>
+        
         <button
           onClick={() => {
             onClose();
             navigate('/account-settings');
           }}
-          className="flex items-center space-x-3 px-4 py-3 rounded-lg bg-gradient-primary text-white hover:shadow-glow-purple transition-all duration-300 w-full text-left animate-fadeIn"
+          className="flex items-center space-x-3 px-4 py-4 rounded-lg bg-gradient-primary text-white hover:shadow-glow-purple transition-all duration-300 w-full text-left animate-fadeIn min-h-[48px] text-base font-medium"
         >
-          <User className="w-5 h-5" />
+          <User className="w-5 h-5 flex-shrink-0" />
           <span className="font-medium">Configurações da Conta</span>
         </button>
         {(profile?.user_type === 'admin' || user?.email === 'admin@lamusicweek.com') && (
@@ -190,17 +202,17 @@ function MobileLoginButton({ onClose }: { onClose: () => void }) {
               onClose();
               navigate('/admin/dashboard');
             }}
-            className="flex items-center space-x-3 px-4 py-3 rounded-lg bg-gradient-secondary text-white hover:shadow-lg hover:shadow-pink-500/25 focus:ring-pink-500 glow-pink transition-all duration-300 w-full text-left animate-fadeIn"
+            className="flex items-center space-x-3 px-4 py-4 rounded-lg bg-gradient-secondary text-white hover:shadow-lg hover:shadow-pink-500/25 focus:ring-pink-500 glow-pink transition-all duration-300 w-full text-left animate-fadeIn min-h-[48px] text-base font-medium"
           >
-            <Settings className="w-5 h-5" />
+            <Settings className="w-5 h-5 flex-shrink-0" />
             <span className="font-medium">Dashboard</span>
           </button>
         )}
         <button
           onClick={handleLogout}
-          className="flex items-center space-x-3 px-4 py-3 rounded-lg glass border border-white/20 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/30 transition-all duration-300 w-full text-left animate-fadeIn"
+          className="flex items-center space-x-3 px-4 py-4 rounded-lg glass border border-white/20 text-white/80 hover:text-white hover:bg-white/10 hover:border-white/30 transition-all duration-300 w-full text-left animate-fadeIn min-h-[48px] text-base font-medium"
         >
-          <LogOut className="w-5 h-5" />
+          <LogOut className="w-5 h-5 flex-shrink-0" />
           <span className="font-medium">Logout</span>
         </button>
       </div>
@@ -213,9 +225,9 @@ function MobileLoginButton({ onClose }: { onClose: () => void }) {
         onClose();
         navigate('/login');
       }}
-      className="flex items-center space-x-3 px-4 py-3 rounded-lg bg-gradient-primary text-white hover:shadow-glow-purple transition-all duration-300 w-full text-left animate-fadeIn"
+      className="flex items-center space-x-3 px-4 py-4 rounded-lg bg-gradient-primary text-white hover:shadow-glow-purple transition-all duration-300 w-full text-left animate-fadeIn min-h-[48px] text-base font-medium"
     >
-      <LogIn className="w-5 h-5" />
+      <LogIn className="w-5 h-5 flex-shrink-0" />
       <span className="font-medium">Login/Cadastro</span>
     </button>
   );

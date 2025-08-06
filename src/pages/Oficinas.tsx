@@ -27,18 +27,50 @@ export default function Oficinas() {
   const { showSuccess, showError, showInfo } = useToast();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   useEffect(() => {
-    // Só busca workshops quando o perfil estiver carregado (ou quando não há usuário logado)
-    if (!user || (!profileLoading && profile)) {
+    // Evitar múltiplas chamadas
+    if (hasInitialized || loading.workshops) {
+      return;
+    }
+
+    console.log('🔄 Oficinas useEffect triggered:', {
+      user: !!user,
+      profile: !!profile,
+      profileLoading,
+      workshopsLength: workshops.length,
+      loadingWorkshops: loading.workshops,
+      userType: profile?.user_type,
+      unitId: profile?.unit_id
+    });
+
+    // Para usuários não autenticados, mostrar todas as oficinas
+    if (!user) {
+      console.log('👤 Usuário não autenticado - buscando todas as oficinas');
+      fetchWorkshops();
+      setHasInitialized(true);
+      return;
+    }
+
+    // Para usuários autenticados, aguardar o perfil carregar
+    if (!profileLoading && profile) {
       // Se for admin, buscar todas as oficinas (sem filtro de unidade)
       // Se for aluno/responsável, buscar apenas da sua unidade
       const shouldFilterByUnit = profile?.user_type !== 'admin';
-      fetchWorkshops(shouldFilterByUnit ? profile?.unit_id : undefined);
+      const unitIdToFetch = shouldFilterByUnit ? profile?.unit_id : undefined;
+      
+      console.log('📞 Usuário autenticado - chamando fetchWorkshops com:', {
+        shouldFilterByUnit,
+        unitIdToFetch,
+        userType: profile?.user_type
+      });
+      
+      fetchWorkshops(unitIdToFetch);
+      setHasInitialized(true);
     }
-  }, [user, profile, profileLoading, fetchWorkshops]);
+  }, [user, profile, profileLoading, hasInitialized, loading.workshops]);
 
   const handleEnroll = async (workshopId: string) => {
     try {
@@ -88,12 +120,13 @@ export default function Oficinas() {
         }
       }
       
-      // Verificar se o usuário já está inscrito neste workshop
+      // Verificar se o usuário já está inscrito neste workshop (apenas inscrições ativas)
       const userRegistrations = await supabase
         .from('inscricoes')
-        .select('id')
+        .select('id, status_inscricao')
         .eq('workshop_id', workshopId)
         .eq('user_id', userRecord.id)
+        .neq('status_inscricao', 'cancelada') // Excluir inscrições canceladas
         .maybeSingle();
       
       if (userRegistrations.data) {
@@ -153,16 +186,16 @@ export default function Oficinas() {
       {/* Header */}
       <section className="pt-24 pb-12">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 glow font-inter">
+          <div className="text-center mb-8 md:mb-12 px-4">
+            <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold text-white mb-4 md:mb-6 glow font-inter">
               Oficinas Disponíveis
             </h1>
-            <p className="text-xl text-white/80 max-w-3xl mx-auto font-source">
+            <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto font-source">
               Explore nossa seleção de oficinas musicais e encontre a perfeita para o seu nível e interesse.
             </p>
             {user && profile && (
-              <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg max-w-2xl mx-auto">
-                <p className="text-blue-200 text-sm">
+              <div className="mt-3 md:mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg max-w-2xl mx-auto">
+                <p className="text-blue-200 text-xs md:text-sm">
                   {profile.user_type === 'admin' ? (
                     <><span className="font-medium">Visualização:</span> Exibindo todas as oficinas de todas as unidades</>
                   ) : (
@@ -174,8 +207,8 @@ export default function Oficinas() {
           </div>
           
           {/* Filters */}
-          <Card className="mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card className="mb-6 md:mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 w-5 h-5" />
@@ -184,7 +217,7 @@ export default function Oficinas() {
                   placeholder="Buscar oficinas..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-base"
                 />
               </div>
               
@@ -196,7 +229,7 @@ export default function Oficinas() {
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none"
+                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none text-base"
                 >
                   <option value="all" className="bg-gray-800">Todos os instrumentos</option>
                   {Array.from(new Set(workshops.map(w => w.instrumento).filter(Boolean))).map(instrumento => (
@@ -214,13 +247,17 @@ export default function Oficinas() {
       {/* Workshops Grid */}
       <section className="pb-20">
         <div className="container mx-auto px-4">
-          {filteredWorkshops.length === 0 ? (
-            <Card className="text-center py-12">
-              <h3 className="text-2xl font-semibold text-white mb-4">Nenhuma oficina encontrada</h3>
-              <p className="text-white/80">Tente ajustar os filtros para encontrar oficinas disponíveis.</p>
+          {loading.workshops ? (
+            <div className="flex justify-center items-center py-8 md:py-12">
+              <div className="animate-spin rounded-full h-8 w-8 md:h-12 md:w-12 border-b-2 border-purple-500"></div>
+            </div>
+          ) : filteredWorkshops.length === 0 ? (
+            <Card className="text-center py-8 md:py-12">
+              <h3 className="text-lg md:text-2xl font-semibold text-white mb-3 md:mb-4">Nenhuma oficina encontrada</h3>
+              <p className="text-sm md:text-base text-white/80">Tente ajustar os filtros para encontrar oficinas disponíveis.</p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
               {filteredWorkshops.map((workshop) => {
                 // Verificações de segurança para propriedades
                 const nome = workshop.nome || 'Workshop sem nome';
@@ -256,42 +293,46 @@ export default function Oficinas() {
                   </div>
                   
                   {/* Content */}
-                  <div className="space-y-4">
+                  <div className="space-y-3 md:space-y-4">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-xl font-semibold text-white font-inter">
+                      <div className="flex items-start justify-between mb-2">
+                        <h3 className="text-lg md:text-xl font-semibold text-white font-inter leading-tight pr-2">
                            {nome}
                          </h3>
-
+                        <div className="flex-shrink-0">
+                          <div className={`w-3 h-3 rounded-full ${
+                            status === 'ativa' ? 'bg-green-400' : 'bg-red-400'
+                          }`} />
+                        </div>
                       </div>
-                       <p className="text-white/80 text-sm font-source">
+                       <p className="text-white/80 text-sm font-source line-clamp-2">
                          {descricao}
                        </p>
                     </div>
                     
                     {/* Professor */}
                     <div className="flex items-center gap-2 text-white/70">
-                       <Users className="w-4 h-4" />
-                       <span className="text-sm">Prof. {workshop.instructor || 'A definir'}</span>
+                       <Users className="w-4 h-4 flex-shrink-0" />
+                       <span className="text-sm truncate">Prof. {workshop.instructor || 'A definir'}</span>
                      </div>
                     
                     {/* Data e Vagas */}
-                    <div className="flex items-center justify-between text-sm text-white/70">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-white/70">
                        <div className="flex items-center gap-1">
-                         <Clock className="w-4 h-4" />
-                         <span>{new Date(data_inicio).toLocaleDateString()}</span>
+                         <Clock className="w-4 h-4 flex-shrink-0" />
+                         <span className="truncate">{new Date(data_inicio).toLocaleDateString()}</span>
                        </div>
                        <div className="flex items-center gap-1">
-                         <Users className="w-4 h-4" />
-                         <span>{vagas_disponiveis}/{capacidade} vagas</span>
+                         <Users className="w-4 h-4 flex-shrink-0" />
+                         <span className="truncate">{vagas_disponiveis}/{capacidade} vagas</span>
                        </div>
                      </div>
                     
                     {/* Participants Progress */}
                     <div className="text-sm text-white/70">
-                       <div className="flex justify-between items-center mb-1">
-                         <span>Local: {local}</span>
-                         <span>{capacidade - vagas_disponiveis}/{capacidade} inscritos</span>
+                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 mb-2">
+                         <span className="truncate">Local: {local}</span>
+                         <span className="text-xs sm:text-sm">{capacidade - vagas_disponiveis}/{capacidade} inscritos</span>
                        </div>
                        <div className="w-full bg-white/20 rounded-full h-2">
                          <div 
@@ -312,9 +353,9 @@ export default function Oficinas() {
                      </div>
                     
                     {/* Price & Action */}
-                    <div className="flex items-center justify-between pt-4 border-t border-white/20">
-                      <div>
-                         <span className="text-2xl font-bold text-white">R$ {preco}</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-white/20">
+                      <div className="text-center sm:text-left">
+                         <span className="text-xl sm:text-2xl font-bold text-white">R$ {preco}</span>
                          <span className="text-white/60 text-sm ml-1">/ oficina</span>
                        </div>
                        <Button
@@ -322,6 +363,7 @@ export default function Oficinas() {
                          size="sm"
                          disabled={vagas_disponiveis === 0 || status !== 'ativa'}
                          onClick={() => handleEnroll(workshop.id)}
+                         className="w-full sm:w-auto text-sm px-4 py-2"
                        >
                          {vagas_disponiveis === 0 ? 'Lotado' : status !== 'ativa' ? 'Indisponível' : 'Inscrever-se'}
                        </Button>

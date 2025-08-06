@@ -1,7 +1,5 @@
 # TODO:
 
-- [x] 1: Verificar as políticas RLS atuais da tabela users que estão causando recursão infinita (erro 42P17) (priority: High)
-- [x] 3: Corrigir as políticas RLS problemáticas removendo a recursão infinita (priority: High)
-- [x] 2: Analisar o código de registro em Register.tsx para identificar onde está travando na verificação de email (priority: High)
-- [x] 4: Testar o processo de registro após as correções (priority: Medium)
-- [x] 5: Verificar se os erros de carregamento de perfil foram resolvidos (priority: Medium)
+- [x] admin-responsive-1: Melhorar responsividade do ConfirmDialog.tsx - ajustar modal para mobile, botões touch e espaçamentos (priority: High)
+- [x] admin-responsive-2: Otimizar AutomatedReminders.tsx para mobile - formulários responsivos, cards e campos de input (priority: High)
+- [x] admin-responsive-3: Testar responsividade dos componentes admin em diferentes tamanhos de tela (priority: Medium)

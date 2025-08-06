@@ -104,6 +104,7 @@ export function GuestForm({ guests, onGuestsChange, maxGuests = 3, studentGuardi
             size="sm"
             onClick={() => setShowForm(true)}
             icon={<Plus className="w-4 h-4" />}
+            className="min-h-[44px]"
           >
             Adicionar Convidado
           </Button>
@@ -135,7 +136,7 @@ export function GuestForm({ guests, onGuestsChange, maxGuests = 3, studentGuardi
                   size="sm"
                   onClick={() => handleRemoveGuest(guest.id)}
                   icon={<X className="w-4 h-4" />}
-                  className="text-red-400 border-red-400 hover:bg-red-400/10"
+                  className="text-red-400 border-red-400 hover:bg-red-400/10 min-h-[44px]"
                 >
                   Remover
                 </Button>
@@ -155,6 +156,7 @@ export function GuestForm({ guests, onGuestsChange, maxGuests = 3, studentGuardi
               size="sm"
               onClick={() => setShowForm(false)}
               icon={<X className="w-4 h-4" />}
+              className="min-h-[44px]"
             >
               Cancelar
             </Button>
@@ -227,7 +229,7 @@ export function GuestForm({ guests, onGuestsChange, maxGuests = 3, studentGuardi
             <Button
               variant="outline"
               onClick={() => setShowForm(false)}
-              className="flex-1"
+              className="flex-1 min-h-[44px]"
             >
               Cancelar
             </Button>
@@ -235,7 +237,7 @@ export function GuestForm({ guests, onGuestsChange, maxGuests = 3, studentGuardi
               variant="primary"
               onClick={handleAddGuest}
               disabled={!currentGuest.name || !currentGuest.age || !currentGuest.phone || !currentGuest.workshopId}
-              className="flex-1"
+              className="flex-1 min-h-[44px]"
             >
               Adicionar Convidado
             </Button>

@@ -19,8 +19,7 @@ export default function Login() {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState('');
-  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
+
   
   const { signIn, user, loading, resetPassword, isAdmin, userProfile } = useAuth();
   const { showSuccess, showError, showInfo } = useToast();
@@ -28,25 +27,25 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Proteção de rota: redirecionar usuários já autenticados imediatamente
   useEffect(() => {
-    // Verificar se há mensagem de confirmação de email ou erro vinda do location.state
-    const state = location.state as { message?: string; error?: string; type?: string } | null;
-    if (state?.message) {
-      if (state.type === 'success') {
-        showSuccess('Email Confirmado', state.message);
-      } else if (state.type === 'error') {
-        showError('Erro na Confirmação', state.message);
+    if (user && !loading) {
+      console.log('🔄 Login: Usuário já autenticado, redirecionando...');
+      
+      const selectedWorkshopId = localStorage.getItem('selectedWorkshopId');
+      
+      if (isAdmin || userProfile?.user_type === 'admin') {
+        navigate('/admin/dashboard', { replace: true });
+      } else if (selectedWorkshopId) {
+        navigate('/inscricao', { replace: true });
       } else {
-        showInfo('Informação', state.message);
+        navigate('/', { replace: true });
       }
-      // Limpar o state para não mostrar a mensagem novamente
-      navigate(location.pathname, { replace: true });
+      return;
     }
-    if (state?.error) {
-      showError('Erro na Confirmação', state.error);
-      navigate(location.pathname, { replace: true });
-    }
+  }, [user, loading, isAdmin, userProfile, navigate]);
 
+  useEffect(() => {
     // Verificar se há selectedWorkshopId no localStorage
     const selectedWorkshopId = localStorage.getItem('selectedWorkshopId');
     if (selectedWorkshopId) {
@@ -55,119 +54,48 @@ export default function Login() {
         'Para se inscrever no workshop, você precisa fazer login primeiro.'
       );
     }
-  }, [location.state, navigate]);
+  }, [navigate]);
 
-  useEffect(() => {
-    // Redirecionar usuário já autenticado
-    if (user && !loading) {
-      console.log('Usuário autenticado detectado:', { user: user.email, isAdmin, userProfile });
-      
-      // Aguardar um pouco para o perfil carregar se ainda não carregou
-      const redirectUser = async () => {
-        // Se não tem perfil ainda, tentar carregar diretamente
-        let currentIsAdmin = isAdmin;
-        if (!userProfile) {
-          try {
-            const { data: profile } = await supabase.from('users')
-              .select('*')
-              .eq('user_id', user.id)
-              .single();
-            
-            if (profile) {
-              currentIsAdmin = profile.user_type === 'admin';
-            }
-          } catch (error) {
-            console.error('Erro ao buscar perfil para redirecionamento:', error);
-          }
-        }
-        
-        // Verificar se há workshop selecionado
-        const selectedWorkshopId = localStorage.getItem('selectedWorkshopId');
-        
-        if (currentIsAdmin) {
-          console.log('Redirecionando admin para dashboard');
-          navigate('/admin/dashboard', { replace: true });
-        } else if (selectedWorkshopId) {
-          console.log('Redirecionando usuário para inscrição');
-          navigate('/inscricao', { replace: true });
-        } else {
-          console.log('Redirecionando usuário para home');
-          navigate('/', { replace: true });
-        }
-      };
-      
-      redirectUser();
-    }
-  }, [user, loading, isAdmin, userProfile, navigate]);
+  // useEffect removido - lógica de redirecionamento movida para o useEffect acima
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-    setEmailNotConfirmed(false);
+    
+    console.log('🔄 Login: Iniciando processo de login para:', email);
 
     try {
       const { error } = await signIn(email, password);
     
-    if (error) {
-        
-        if (error.code === 'email_not_confirmed' || 
-            error.message === 'Email not confirmed' ||
-            error.message === 'email_not_confirmed') {
-          setEmailNotConfirmed(true);
-          setError('❌ Seu email ainda não foi confirmado.\n\nVerifique sua caixa de entrada (incluindo spam) e clique no link de confirmação antes de tentar fazer login novamente.');
-          showError(
-            'Email Não Confirmado', 
-            'Você precisa confirmar seu email antes de fazer login. Verifique sua caixa de entrada e spam.'
-          );
-        } else if (error.message?.includes('Invalid login credentials')) {
-          setEmailNotConfirmed(false);
+      if (error) {
+        console.error('❌ Login: Erro no signIn:', error);
+        if (error.message?.includes('Invalid login credentials')) {
           setError('Email ou senha incorretos. Verifique suas credenciais e tente novamente.');
+          showError('Credenciais Inválidas', 'Email ou senha incorretos.');
         } else {
-          setEmailNotConfirmed(false);
           setError(error.message || 'Erro ao fazer login');
+          showError('Erro no Login', error.message || 'Erro ao fazer login');
         }
+        setIsLoading(false);
       } else {
-        // Login bem-sucedido
+        console.log('✅ Login: signIn bem-sucedido, aguardando redirecionamento...');
+        // Login bem-sucedido - o redirecionamento será feito pelo useEffect
+        // Não definir isLoading como false aqui, deixar o useEffect gerenciar
         showSuccess('Login Realizado', 'Bem-vindo de volta!');
         
-        // Aguardar um pouco para o contexto atualizar e então redirecionar
-        setTimeout(async () => {
-          try {
-            // Buscar perfil do usuário diretamente
-            const { data: { user: currentUser } } = await supabase.auth.getUser();
-            
-            if (currentUser) {
-              const { data: profile } = await supabase.from('users')
-                .select('*')
-                .eq('user_id', currentUser.id)
-                .single();
-              
-              const selectedWorkshopId = localStorage.getItem('selectedWorkshopId');
-              
-              if (profile?.user_type === 'admin') {
-                console.log('Redirecionando admin após login');
-                navigate('/admin/dashboard', { replace: true });
-              } else if (selectedWorkshopId) {
-                console.log('Redirecionando usuário para inscrição após login');
-                navigate('/inscricao', { replace: true });
-              } else {
-                console.log('Redirecionando usuário para home após login');
-                navigate('/', { replace: true });
-              }
-            }
-          } catch (error) {
-            console.error('Erro ao redirecionar após login:', error);
-            // Fallback para home
-            navigate('/', { replace: true });
+        // Aguardar um pouco para o AuthContext processar
+        setTimeout(() => {
+          if (isLoading) {
+            console.log('⏰ Login: Timeout - definindo isLoading como false');
+            setIsLoading(false);
           }
-        }, 1000);
+        }, 3000);
       }
     } catch (err) {
-      console.error('Erro inesperado:', err);
+      console.error('❌ Login: Erro inesperado:', err);
       showError('Erro inesperado. Tente novamente.');
       setError('Erro inesperado. Tente novamente.');
-    } finally {
       setIsLoading(false);
     }
   };
@@ -199,37 +127,7 @@ export default function Login() {
     }
   };
 
-  const handleResendConfirmation = async () => {
-    if (!email) {
-      setError('Digite seu email primeiro');
-      return;
-    }
 
-    setResendLoading(true);
-    setError('');
-
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-
-      if (error) {
-        setError('Erro ao reenviar email: ' + error.message);
-      } else {
-        showSuccess('Email reenviado', 'Verifique sua caixa de entrada para o novo email de confirmação.');
-        setEmailNotConfirmed(false);
-      }
-    } catch (err) {
-      console.error('Erro ao reenviar email:', err);
-      setError('Erro ao reenviar email. Tente novamente.');
-    } finally {
-      setResendLoading(false);
-    }
-  };
 
   if (showForgotPassword) {
     return (
@@ -319,35 +217,35 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 py-8">
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
+        <div className="absolute top-1/4 left-1/4 w-32 h-32 md:w-64 md:h-64 bg-purple-500/20 rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 md:w-96 md:h-96 bg-pink-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 md:w-80 md:h-80 bg-blue-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
       </div>
 
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center mb-4">
+        <div className="text-center mb-6 md:mb-8">
+          <div className="inline-flex items-center justify-center mb-3 md:mb-4">
             <img 
               src="/assets/lamusic.png" 
               alt="LA Music Week" 
-              className="w-24 h-24 object-contain drop-shadow-2xl"
+              className="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-2xl"
             />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2 font-inter glow">
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 font-inter glow">
             LA Music Week
           </h1>
-          <p className="text-white/70 font-source">
+          <p className="text-sm md:text-base text-white/70 font-source">
             Entrar na sua conta
           </p>
         </div>
 
         {/* Login Form */}
-          <Card className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <Card className="p-4 md:p-8">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-white mb-2">
                 Email
@@ -359,7 +257,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-3 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="seu@email.com"
                   required
                 />
@@ -377,14 +275,14 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-12 py-3 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="••••••••"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white transition-colors p-1 -m-1"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -396,7 +294,7 @@ export default function Login() {
               <button
                 type="button"
                 onClick={() => setShowForgotPassword(true)}
-                className="text-purple-400 hover:text-purple-300 transition-colors text-sm"
+                className="text-purple-400 hover:text-purple-300 transition-colors text-sm p-1 -m-1 min-h-[44px] flex items-center justify-end"
               >
                 Esqueceu a senha?
               </button>
@@ -408,29 +306,13 @@ export default function Login() {
               </div>
             )}
 
-            {emailNotConfirmed && (
-              <div className="p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-                <p className="text-yellow-300 text-sm mb-3">
-                  Seu email ainda não foi confirmado. Verifique sua caixa de entrada ou clique no botão abaixo para reenviar o email de confirmação.
-                </p>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="w-full"
-                  disabled={resendLoading}
-                  onClick={handleResendConfirmation}
-                >
-                  {resendLoading ? 'Reenviando...' : 'Reenviar Email de Confirmação'}
-                </Button>
-              </div>
-            )}
+
 
             <Button
               type="submit"
               variant="primary"
               size="lg"
-              className="w-full relative"
+              className="w-full relative min-h-[48px] md:min-h-[52px]"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -445,12 +327,12 @@ export default function Login() {
           </form>
 
           {/* Register Link */}
-          <div className="text-center mt-6">
+          <div className="text-center mt-4 md:mt-6">
             <p className="text-white/70 text-sm">
               Não tem uma conta?{' '}
               <button
                 onClick={() => navigate('/register')}
-                className="text-purple-400 hover:text-purple-300 transition-colors"
+                className="text-purple-400 hover:text-purple-300 transition-colors p-1 -m-1"
               >
                 Criar conta
               </button>
@@ -461,9 +343,10 @@ export default function Login() {
         </Card>
 
         {/* Back to Home */}
-        <div className="text-center mt-6">
+        <div className="text-center mt-4 md:mt-6">
           <Button
             variant="glass"
+            className="min-h-[44px]"
             onClick={() => navigate('/')}
           >
             Voltar ao Site

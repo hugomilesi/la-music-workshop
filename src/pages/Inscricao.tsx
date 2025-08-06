@@ -47,7 +47,7 @@ export default function Inscricao() {
       // Se não estiver logado, mostrar todas as oficinas
       fetchWorkshops();
     }
-  }, [fetchWorkshops, user, profile]);
+  }, [user, profile?.unit_id]);
   
   useEffect(() => {
     // Auto-selecionar workshop se o usuário veio do login
@@ -377,7 +377,7 @@ export default function Inscricao() {
 
 // Step 2: Student Data
 function StudentDataStep() {
-  const { studentData, updateStudentData, setCurrentStep, guests, updateGuests, workshops } = useStore();
+  const { studentData, updateStudentData, setCurrentStep, guests, updateGuests, workshops, selectedWorkshops } = useStore();
   const { user } = useAuth();
   const { profile } = useUserProfile();
   const [formData, setFormData] = useState({
@@ -394,6 +394,10 @@ function StudentDataStep() {
     guardianEmail: studentData.guardianEmail || ''
   });
   const [unitName, setUnitName] = useState('');
+
+  // Verificar se alguma oficina selecionada permite convidados
+  const selectedWorkshopData = workshops.filter(w => selectedWorkshops.includes(w.id));
+  const allowsGuests = selectedWorkshopData.some(workshop => workshop.permite_convidados === true);
 
   // Auto-preenchimento com dados do usuário logado
   useEffect(() => {
@@ -573,21 +577,24 @@ function StudentDataStep() {
 
 
                 <div className="space-y-6">
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      id="convidado"
-                      checked={formData.convidado}
-                      onChange={(e) => handleInputChange('convidado', e.target.checked)}
-                      className="w-4 h-4 text-purple-600 bg-white/10 border-white/20 rounded focus:ring-purple-500"
-                    />
-                    <label htmlFor="convidado" className="text-white">
-                      Desejo trazer amigos
-                    </label>
-                  </div>
+                  {/* Checkbox de convidados - só aparece se alguma oficina selecionada permitir convidados */}
+                  {allowsGuests && (
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="convidado"
+                        checked={formData.convidado}
+                        onChange={(e) => handleInputChange('convidado', e.target.checked)}
+                        className="w-4 h-4 text-purple-600 bg-white/10 border-white/20 rounded focus:ring-purple-500"
+                      />
+                      <label htmlFor="convidado" className="text-white">
+                        Desejo trazer amigos
+                      </label>
+                    </div>
+                  )}
                   
                   {/* Formulário de convidados */}
-                  {formData.convidado && (
+                  {allowsGuests && formData.convidado && (
                     <div className="border-t border-white/20 pt-6">
                       <GuestForm
                         guests={guests}

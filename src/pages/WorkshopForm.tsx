@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Save, X } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import SuccessMessage from '../components/SuccessMessage';
 import { useStore } from '@/store/useStore';
 import { useUserProfile } from '../hooks/useUserProfile';
 
@@ -61,6 +62,7 @@ export default function WorkshopForm() {
   
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [successMessage, setSuccessMessage] = useState({ show: false, text: '' });
 
   useEffect(() => {
     if (isEditing && id) {
@@ -116,11 +118,8 @@ export default function WorkshopForm() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Mapeamento completo de todas as unidades
+  // Mapeamento das unidades corretas
   const UNIDADES_MAP = {
-    "f47ac10b-58cc-4372-a567-0e02b2c3d479": "Unidade Centro",
-    "6ba7b810-9dad-11d1-80b4-00c04fd430c8": "Unidade Norte", 
-    "6ba7b811-9dad-11d1-80b4-00c04fd430c8": "Unidade Sul",
     "19df29a0-83ba-4b1e-a2f7-cb3ac8d25b4f": "Campo Grande",
     "8f424adf-64ca-43e9-909c-8dfd6783ac15": "Barra",
     "a4e3815c-8a34-4ef1-9773-cdeabdce1003": "Recreio"
@@ -144,10 +143,25 @@ export default function WorkshopForm() {
       }
       
       const workshopData = {
+        // Campos obrigatórios do Workshop
+        title: formData.nome,
+        description: formData.descricao,
+        instructor: formData.professor || 'Instrutor',
+        duration: '2 horas',
+        level: formData.nivel || 'iniciante' as const,
+        category: formData.instrumento || 'Geral',
+        maxParticipants: formData.total_vagas,
+        currentParticipants: 0,
+        price: formData.gratuito ? 0 : formData.preco,
+        rating: 4.5,
+        image: '',
+        schedule: [new Date(formData.data_inicio).toLocaleString('pt-BR')],
+        unidade: 'Unidade Principal',
+        // Campos do banco de dados
         nome: formData.nome,
         descricao: formData.descricao,
         data_inicio: new Date(formData.data_inicio).toISOString(),
-        data_fim: new Date(formData.data_inicio).toISOString(), // Usando a mesma data por enquanto
+        data_fim: new Date(formData.data_inicio).toISOString(),
         local: formData.local,
         capacidade: formData.total_vagas,
         preco: formData.gratuito ? 0 : formData.preco,
@@ -155,20 +169,24 @@ export default function WorkshopForm() {
         nivel: formData.nivel || 'iniciante' as const,
         vagas_disponiveis: isEditing ? (workshops.find(w => w.id === id)?.vagas_disponiveis || formData.total_vagas) : formData.total_vagas,
         status: formData.status as 'ativa' | 'cancelada' | 'finalizada',
-        unit_id: formData.unidade, // Usar o ID da unidade diretamente
+        unit_id: formData.unidade,
         idade_minima: formData.idade_minima,
-        idade_maxima: formData.idade_maxima
+        idade_maxima: formData.idade_maxima,
+        permite_convidados: formData.permite_convidados
       };
       
       if (isEditing && id) {
         await updateWorkshop(id, workshopData);
-        alert('Workshop atualizado com sucesso!');
+        setSuccessMessage({ show: true, text: 'Workshop atualizado com sucesso!' });
       } else {
         await createWorkshop(workshopData);
-        alert('Workshop criado com sucesso!');
+        setSuccessMessage({ show: true, text: 'Workshop criado com sucesso!' });
       }
       
-      navigate('/admin/dashboard');
+      // Aguardar um pouco antes de navegar para mostrar a mensagem
+      setTimeout(() => {
+        navigate('/admin/dashboard');
+      }, 2000);
     } catch (error) {
       console.error('Erro ao salvar workshop:', error);
       alert('Erro ao salvar workshop. Tente novamente.');
@@ -186,6 +204,11 @@ export default function WorkshopForm() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
+      <SuccessMessage
+         isVisible={successMessage.show}
+         message={successMessage.text}
+         onClose={() => setSuccessMessage({ show: false, text: '' })}
+       />
       {/* Header */}
       <header className="bg-white/10 backdrop-blur-md border-b border-white/20">
         <div className="container mx-auto px-4 py-4">
@@ -381,7 +404,7 @@ export default function WorkshopForm() {
                     Data de Início *
                   </label>
                   <input
-                    type="date"
+                    type="datetime-local"
                     value={formData.data_inicio}
                     onChange={(e) => handleInputChange('data_inicio', e.target.value)}
                     className={`w-full px-4 py-3 bg-white/10 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -451,6 +474,23 @@ export default function WorkshopForm() {
                   </select>
                   {errors.unidade && <p className="text-red-400 text-sm mt-1">{errors.unidade}</p>}
                 </div>
+              </div>
+
+              {/* Upload de Imagem */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Imagem da Oficina
+                </label>
+                <input
+                  type="url"
+                  value={formData.imagem}
+                  onChange={(e) => handleInputChange('imagem', e.target.value)}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://exemplo.com/imagem.jpg"
+                />
+                <p className="text-white/60 text-xs mt-2">
+                  Cole o URL de uma imagem para a oficina (opcional)
+                </p>
               </div>
 
               {/* Preço e Configurações */}
@@ -528,6 +568,7 @@ export default function WorkshopForm() {
                   variant="outline"
                   onClick={() => navigate('/admin/dashboard')}
                   icon={<X className="w-4 h-4" />}
+                  className="min-h-[44px]"
                 >
                   Cancelar
                 </Button>
@@ -536,6 +577,7 @@ export default function WorkshopForm() {
                   variant="primary"
                   disabled={loading}
                   icon={<Save className="w-4 h-4" />}
+                  className="min-h-[44px]"
                 >
                   {loading ? 'Salvando...' : isEditing ? 'Atualizar' : 'Criar'} Workshop
                 </Button>

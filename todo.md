@@ -1,20 +1,16 @@
-# Mudanças
+# Alguns problemas
+- O problema é que os dados da oficina as vezes carregam, as vezes não, fica carregando infinitamente.
+- Existem muitas telas que ficam carregando sem motivo com a mensagem: Verificando permissões...
+- Oficinas disponiveis tambem demora muito a carregar, a vezes nem carrega
+- A sessao de perfil tambem nao carrega, fica apenas 'Carregando perfil...'
 
-# Area do usuário
-- Crie um cadastro de usuários. No cadastro, o usuário deve escolher de qual unidade ele pertence(Campo Grande, Barra, Recreio)
-- O cadastro de usuário deve ter confirmação de email e recuperação de conta. Utilize a chave de email smtp para emails.
-- Oficinas: As oficinas vao ser automaticamente filtradas pela unidade que o usuário pertence, por exemplo: se estiver preenchido no seu login que ele é de campo grande, apenas as oficinas de campo grande estarão disponíveis para ele e vice-versa.
 
-# Alterações ainda pendentes
 
-## Geral
-- Para eventos gratuiutos, nao precisa ter status pendente, se a pessoa se inscreveu, ela esta automaticamente inscrita.
-- Deve ser possível definir a idade Máxima e minima por oficina no cadastro de uma nova oficina.
-
-## Funcionamento dos convidados
-- **Campo de Convidados dinamico**: O campo de 'desejo trazer um amigo' deve ser vinculado na criação do evento, se ao criar o evento for permitido trazer um amigo, o formulario de inscrição vai aparecer trazer um amigo, se o evento criado nao for permitido convidados, o campo de cadastro de convidados nao vai existir.
-- Se o aluno for levar convidado, o convidado tambem deve ser cadastrado no site, podendo escolher a oficina que deseja participar.
-
+# Problemas
+- Desative a autenticação por email, eu ja desativei diretamente na supabase, mas acho que precisa ser desativado no projeto tambem. Dexe o codigo simples, esperando apenaso o usuario e senha correto, sem esperar por confirmação nem nada.
+- Outra coisa que acontece é que eu coloco minha senha na area de login, eu nao sou redicerionado, mas eu loguei mesmo assim, isso causa estranheza. 
+- Remova as mensagens de onvirmação de email, pois neste momento nao sera necessário.
+- A autenticação deve ser apenas usuario e senha.
 
 
 # Regras da oficina
@@ -46,4 +42,7 @@
 *  
 
 
-* O CRUD completo das oficinas ainda nao funiona, alterar a foto de uma oficina, por exemplo ainda nao funciona, eu altero ela nao muda.
+# Problemas
+- Trocar os icones da logo pelo drive que o luciano colocou
+
+* 

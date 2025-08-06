@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 
@@ -19,59 +19,70 @@ interface UserProfile {
 export function useUserProfile() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fetchingRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null);
 
   const fetchProfile = async () => {
-    if (!user) {
-      setProfile(null);
-      setLoading(false);
-      setError(null);
+    if (!user?.id || fetchingRef.current) {
       return;
     }
-
+    
+    console.log('🔄 useUserProfile: Refetch perfil para usuário:', user.id);
+    
+    fetchingRef.current = true;
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
-      setError(null);
-
-      // Buscar por user_id (que corresponde ao auth.uid())
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
-
+        .single();
+      
       if (error) {
-        console.error('Erro ao buscar perfil do usuário:', error);
-        // Não definir como erro se for problema de permissão ou política RLS
-        if (error.code === '42501' || error.code === '42P17') {
-          console.warn('Problema de permissão/política RLS, ignorando...');
-          setError(null);
+        if (error.code === 'PGRST116') {
+          // Usuário não encontrado na tabela users
+          console.log('❌ useUserProfile: Usuário não encontrado na tabela users (refetch)');
+          setProfile(null);
         } else {
-          setError(error.message);
+          throw error;
         }
-        setProfile(null);
       } else {
+        console.log('✅ useUserProfile: Perfil encontrado (refetch):', data.nome_completo);
         setProfile(data);
       }
-    } catch (err: any) {
-      console.error('Erro inesperado ao buscar perfil:', err);
-      // Não tratar como erro crítico se for problema de rede
-      if (err.message?.includes('Failed to fetch')) {
-        console.warn('Problema de rede ao buscar perfil, ignorando...');
-        setError(null);
-      } else {
-        setError('Erro inesperado ao carregar perfil');
-      }
-      setProfile(null);
+    } catch (err) {
+      console.error('❌ useUserProfile: Erro ao buscar perfil do usuário (refetch):', err);
+      setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
+      fetchingRef.current = false;
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    if (!user) {
+      console.log('❌ useUserProfile: Nenhum usuário, limpando perfil');
+      setProfile(null);
+      setLoading(false);
+      setError(null);
+      lastUserIdRef.current = null;
+      return;
+    }
+
+    // Evitar buscar o mesmo perfil múltiplas vezes
+    if (lastUserIdRef.current === user.id) {
+      console.log('⏭️ useUserProfile: Perfil já carregado para este usuário:', user.id);
+      return;
+    }
+
+    console.log('🔄 useUserProfile: Usuário mudou, buscando perfil:', user.id);
+    lastUserIdRef.current = user.id;
     fetchProfile();
-  }, [user]);
+  }, [user?.id])
 
   return { profile, loading, error, refetch: fetchProfile };
 }

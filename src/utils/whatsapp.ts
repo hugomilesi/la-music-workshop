@@ -2,9 +2,7 @@
 
 interface WhatsAppMessage {
   number: string;
-  textMessage: {
-    text: string;
-  };
+  text: string;
 }
 
 interface EvolutionAPIResponse {
@@ -37,9 +35,7 @@ export async function sendWhatsAppMessage(
     
     const payload: WhatsAppMessage = {
       number: formattedNumber,
-      textMessage: {
-        text: message
-      }
+      text: message
     };
 
     const response = await fetch(`${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`, {
@@ -128,6 +124,41 @@ export async function sendEnrollmentConfirmation(
     workshopDate,
     isGratuita
   );
+  
+  return await sendWhatsAppMessage(phoneNumber, message);
+}
+
+/**
+ * Cria uma mensagem de confirmação de cadastro
+ * @param studentName - Nome do aluno
+ * @returns Mensagem formatada
+ */
+export function createRegistrationConfirmationMessage(
+  studentName: string
+): string {
+  return `🎵 *LA MUSIC WEEK* 🎵\n\n` +
+    `Olá ${studentName}! Bem-vindo(a) à LA MUSIC WEEK! 🎉\n\n` +
+    `Seu cadastro foi realizado com sucesso! ✅\n\n` +
+    `📧 *IMPORTANTE:* Verifique sua caixa de entrada e clique no link de confirmação do email para ativar sua conta.\n\n` +
+    `Após confirmar seu email, você poderá:\n` +
+    `🎼 Navegar pelas oficinas disponíveis\n` +
+    `📝 Se inscrever nas oficinas de sua escolha\n` +
+    `👤 Gerenciar seu perfil\n\n` +
+    `Estamos ansiosos para vê-lo(a) em nossas oficinas! 🎶\n\n` +
+    `🎵 LA MUSIC WEEK - Onde a música acontece! 🎵`;
+}
+
+/**
+ * Envia mensagem de confirmação de cadastro
+ * @param phoneNumber - Número do telefone
+ * @param studentName - Nome do aluno
+ * @returns Promise com resultado do envio
+ */
+export async function sendRegistrationConfirmation(
+  phoneNumber: string,
+  studentName: string
+): Promise<EvolutionAPIResponse> {
+  const message = createRegistrationConfirmationMessage(studentName);
   
   return await sendWhatsAppMessage(phoneNumber, message);
 }

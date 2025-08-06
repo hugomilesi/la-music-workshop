@@ -40,7 +40,7 @@ const AutomatedReminders: React.FC = () => {
   } = useStore();
 
   const [showForm, setShowForm] = useState(false);
-  const [editingReminder, setEditingReminder] = useState<string | null>(null);
+  const [editingReminder, setEditingReminder] = useState<any | null>(null);
   const [selectedWorkshop, setSelectedWorkshop] = useState<string>('');
   const [testMode, setTestMode] = useState(false);
   const [processingReminders, setProcessingReminders] = useState(false);
@@ -192,8 +192,28 @@ const AutomatedReminders: React.FC = () => {
       mensagem: reminder.mensagem,
       ativo: reminder.ativo
     });
-    setEditingReminder(reminder.id);
+    setEditingReminder(reminder);
     setShowForm(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReminder) return;
+    
+    try {
+      await updateReminder(editingReminder.id, {
+        workshop_id: editingReminder.workshop_id,
+        tipo_lembrete: editingReminder.tipo_lembrete,
+        periodo_disparo: editingReminder.periodo_disparo,
+        titulo: editingReminder.titulo,
+        mensagem: editingReminder.mensagem,
+        ativo: editingReminder.ativo
+      });
+      setEditingReminder(null);
+      alert('Lembrete atualizado com sucesso!');
+    } catch (error) {
+      alert('Erro ao atualizar lembrete');
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -262,24 +282,24 @@ const AutomatedReminders: React.FC = () => {
         </div>
 
         {/* Controles */}
-        <div className="mb-6 flex flex-wrap gap-4">
+        <div className="mb-6 flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
           <Button
             onClick={() => setShowForm(true)}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 min-h-[44px] w-full sm:w-auto"
           >
             Novo Lembrete
           </Button>
           
           <Button
             onClick={() => setShowTestMessage(true)}
-            className="bg-purple-600 hover:bg-purple-700"
+            className="bg-purple-600 hover:bg-purple-700 min-h-[44px] w-full sm:w-auto"
           >
             Teste de Mensagem
           </Button>
           
           <Button
             onClick={() => setShowCustomReminder(true)}
-            className="bg-orange-600 hover:bg-orange-700"
+            className="bg-orange-600 hover:bg-orange-700 min-h-[44px] w-full sm:w-auto"
           >
             Lembrete Custom
           </Button>
@@ -287,7 +307,7 @@ const AutomatedReminders: React.FC = () => {
           <Button
             onClick={handleTestReminders}
             disabled={processingReminders}
-            className="bg-green-600 hover:bg-green-700"
+            className="bg-green-600 hover:bg-green-700 min-h-[44px] w-full sm:w-auto"
           >
             {processingReminders ? 'Processando...' : 'Testar Lembretes'}
           </Button>
@@ -295,7 +315,7 @@ const AutomatedReminders: React.FC = () => {
           <select
             value={selectedWorkshop}
             onChange={(e) => setSelectedWorkshop(e.target.value)}
-            className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px] w-full sm:w-auto"
             style={{ colorScheme: 'dark' }}
           >
             <option value="" className="bg-gray-800 text-white">Todos os Workshops</option>
@@ -309,13 +329,13 @@ const AutomatedReminders: React.FC = () => {
 
         {/* Formulário */}
         {showForm && (
-          <Card className="mb-6">
-            <h2 className="text-xl font-semibold mb-4">
+          <Card className="mb-6 p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold mb-4">
               {editingReminder ? 'Editar Lembrete' : 'Novo Lembrete'}
             </h2>
             
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
                     Workshop
@@ -324,7 +344,7 @@ const AutomatedReminders: React.FC = () => {
                     value={formData.workshop_id}
                     onChange={(e) => setFormData({ ...formData, workshop_id: e.target.value })}
                     required
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                     style={{ colorScheme: 'dark' }}
                   >
                     <option value="" className="bg-gray-800 text-white">Selecione um workshop</option>
@@ -343,7 +363,7 @@ const AutomatedReminders: React.FC = () => {
                   <select
                     value={formData.tipo_lembrete}
                     onChange={(e) => setFormData({ ...formData, tipo_lembrete: e.target.value as 'confirmacao_inscricao' | 'lembrete_evento' | 'pos_evento' })}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                     style={{ colorScheme: 'dark' }}
                   >
                     {tiposLembrete.map(tipo => (
@@ -361,7 +381,7 @@ const AutomatedReminders: React.FC = () => {
                   <select
                     value={formData.periodo_disparo}
                     onChange={(e) => setFormData({ ...formData, periodo_disparo: Number(e.target.value) })}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                     style={{ colorScheme: 'dark' }}
                   >
                     {periodosDisparo.map(periodo => (
@@ -379,7 +399,7 @@ const AutomatedReminders: React.FC = () => {
                   <select
                     value={formData.ativo ? 'true' : 'false'}
                     onChange={(e) => setFormData({ ...formData, ativo: e.target.value === 'true' })}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                     style={{ colorScheme: 'dark' }}
                   >
                     <option value="true" className="bg-gray-800 text-white">Ativo</option>
@@ -397,7 +417,7 @@ const AutomatedReminders: React.FC = () => {
                   value={formData.titulo}
                   onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
                   required
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px]"
                   placeholder="Ex: Lembrete do seu workshop"
                 />
               </div>
@@ -411,19 +431,19 @@ const AutomatedReminders: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, mensagem: e.target.value })}
                   required
                   rows={4}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[100px]"
                   placeholder="Digite a mensagem do lembrete..."
                 />
               </div>
               
-              <div className="flex gap-2">
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 min-h-[44px] w-full sm:w-auto">
                   {editingReminder ? 'Atualizar' : 'Criar'} Lembrete
                 </Button>
                 <Button
                   type="button"
                   onClick={resetForm}
-                  className="bg-gray-600 hover:bg-gray-700"
+                  className="bg-gray-600 hover:bg-gray-700 min-h-[44px] w-full sm:w-auto"
                 >
                   Cancelar
                 </Button>
@@ -452,15 +472,15 @@ const AutomatedReminders: React.FC = () => {
                 return (
                   <div
                     key={reminder.id}
-                    className="border border-white/20 rounded-lg p-4 hover:bg-white/5 transition-all"
+                    className="border border-white/20 rounded-lg p-4 sm:p-6 hover:bg-white/5 transition-all"
                   >
-                    <div className="flex justify-between items-start">
+                    <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
                           <h3 className="font-semibold text-white">
                             {reminder.titulo}
                           </h3>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium self-start ${
                             reminder.ativo
                               ? 'bg-green-500/20 text-green-400'
                               : 'bg-red-500/20 text-red-400'
@@ -469,7 +489,7 @@ const AutomatedReminders: React.FC = () => {
                           </span>
                         </div>
                         
-                        <p className="text-white/70 mb-2">{reminder.mensagem}</p>
+                        <p className="text-white/70 mb-3 leading-relaxed">{reminder.mensagem}</p>
                         
                         <div className="text-sm text-white/60 space-y-1">
                           <p><strong>Workshop:</strong> {workshop?.nome || 'Workshop não encontrado'}</p>
@@ -478,11 +498,12 @@ const AutomatedReminders: React.FC = () => {
                         </div>
                       </div>
                       
-                      <div className="flex gap-2 ml-4">
+                      <div className="flex flex-col sm:flex-row gap-2 lg:ml-4">
                         <Button
                           onClick={() => handleEdit(reminder)}
                           variant="outline"
                           size="sm"
+                          className="min-h-[44px] w-full sm:w-auto"
                         >
                           Editar
                         </Button>
@@ -490,7 +511,7 @@ const AutomatedReminders: React.FC = () => {
                           onClick={() => handleDelete(reminder.id)}
                           variant="outline"
                           size="sm"
-                          className="text-red-400 border-red-400 hover:bg-red-500/20"
+                          className="text-red-400 border-red-400 hover:bg-red-500/20 min-h-[44px] w-full sm:w-auto"
                         >
                           Excluir
                         </Button>
@@ -548,8 +569,8 @@ const AutomatedReminders: React.FC = () => {
 
       {/* Modal de Teste de Mensagem */}
       {showTestMessage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-white/20 rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-white/20 rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4 text-white">Teste de Mensagem</h2>
             <form onSubmit={sendTestMessage}>
               <div className="mb-4">
@@ -565,7 +586,7 @@ const AutomatedReminders: React.FC = () => {
                     setTestMessageData({...testMessageData, numero});
                   }}
                   placeholder="Ex: 5511999999999"
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                   pattern="[0-9]{13}"
                   minLength={13}
                   maxLength={13}
@@ -593,15 +614,16 @@ const AutomatedReminders: React.FC = () => {
                   value={testMessageData.mensagem}
                   onChange={(e) => setTestMessageData({...testMessageData, mensagem: e.target.value})}
                   rows={4}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
                   required
                 />
               </div>
-              <div className="flex justify-end gap-3">
+              <div className="flex flex-col sm:flex-row justify-end gap-3">
                 <Button
                   type="button"
                   onClick={() => setShowTestMessage(false)}
                   variant="outline"
+                  className="min-h-[44px] w-full sm:w-auto order-2 sm:order-1"
                 >
                   Cancelar
                 </Button>
@@ -609,6 +631,7 @@ const AutomatedReminders: React.FC = () => {
                   type="submit"
                   disabled={sendingTestMessage}
                   variant="primary"
+                  className="min-h-[44px] w-full sm:w-auto order-1 sm:order-2"
                 >
                   {sendingTestMessage ? 'Enviando...' : 'Enviar'}
                 </Button>
@@ -618,10 +641,88 @@ const AutomatedReminders: React.FC = () => {
         </div>
       )}
 
+      {/* Modal de Edição */}
+      {editingReminder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-white/20 rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4 text-white">Editar Lembrete</h2>
+            <form onSubmit={handleUpdate}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Nome do Lembrete
+                  </label>
+                  <input
+                    type="text"
+                    value={editingReminder.titulo}
+                    onChange={(e) => setEditingReminder({...editingReminder, titulo: e.target.value})}
+                    className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Período (minutos antes)
+                  </label>
+                  <input
+                    type="number"
+                    value={editingReminder.periodo_disparo}
+                    onChange={(e) => setEditingReminder({...editingReminder, periodo_disparo: Number(e.target.value)})}
+                    className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
+                    min="1"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">
+                    Mensagem
+                  </label>
+                  <textarea
+                    value={editingReminder.mensagem}
+                    onChange={(e) => setEditingReminder({...editingReminder, mensagem: e.target.value})}
+                    rows={4}
+                    className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                    required
+                  />
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="edit-ativo"
+                    checked={editingReminder.ativo}
+                    onChange={(e) => setEditingReminder({...editingReminder, ativo: e.target.checked})}
+                    className="mr-2 min-w-[20px] min-h-[20px]"
+                  />
+                  <label htmlFor="edit-ativo" className="text-white">
+                    Ativo
+                  </label>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
+                <Button
+                  type="button"
+                  onClick={() => setEditingReminder(null)}
+                  variant="outline"
+                  className="min-h-[44px] w-full sm:w-auto order-2 sm:order-1"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 min-h-[44px] w-full sm:w-auto order-1 sm:order-2"
+                >
+                  Atualizar
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Lembrete Customizado */}
       {showCustomReminder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-white/20 rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-white/20 rounded-lg p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4 text-white">Lembrete Customizado</h2>
             <form onSubmit={createCustomReminder}>
               <div className="mb-4">
@@ -632,7 +733,7 @@ const AutomatedReminders: React.FC = () => {
                   type="text"
                   value={customReminderData.nome}
                   onChange={(e) => setCustomReminderData({...customReminderData, nome: e.target.value})}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                   required
                 />
               </div>
@@ -643,7 +744,7 @@ const AutomatedReminders: React.FC = () => {
                 <select
                   value={customReminderData.periodo_minutos}
                   onChange={(e) => setCustomReminderData({...customReminderData, periodo_minutos: Number(e.target.value)})}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]"
                   style={{ colorScheme: 'dark' }}
                 >
                   {periodosCustom.map(periodo => (
@@ -661,7 +762,7 @@ const AutomatedReminders: React.FC = () => {
                   value={customReminderData.mensagem}
                   onChange={(e) => setCustomReminderData({...customReminderData, mensagem: e.target.value})}
                   rows={4}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 sm:px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
                   required
                 />
               </div>
@@ -676,17 +777,18 @@ const AutomatedReminders: React.FC = () => {
                   Ativo
                 </label>
               </div>
-              <div className="flex justify-end gap-3">
+              <div className="flex flex-col sm:flex-row justify-end gap-3">
                 <Button
                   type="button"
                   onClick={() => setShowCustomReminder(false)}
                   variant="outline"
+                  className="min-h-[44px] w-full sm:w-auto order-2 sm:order-1"
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
-                  className="bg-orange-600 hover:bg-orange-700"
+                  className="bg-orange-600 hover:bg-orange-700 min-h-[44px] w-full sm:w-auto order-1 sm:order-2"
                 >
                   Criar Lembrete
                 </Button>

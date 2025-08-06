@@ -7,7 +7,7 @@ import Inscricao from '@/pages/Inscricao';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ResetPassword from '@/pages/ResetPassword';
-import ConfirmEmail from '@/pages/ConfirmEmail';
+
 import AuthCallback from '@/pages/AuthCallback';
 
 import AdminDashboard from '@/pages/admindashboard';
@@ -28,7 +28,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/confirm-email" element={<ConfirmEmail />} />
+    
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/account-settings" element={<AccountSettings />} />
             <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />

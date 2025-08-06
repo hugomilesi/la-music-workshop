@@ -279,6 +279,7 @@ EVOLUTION_INSTANCE=Hugo Teste
 **Assegure-se de que:**
 * Um aluno nao pode se inscrever mais de uma vez na mesma oficina.
 * Um aluno pode escolher mais de uma oficina, desde que sejam diferentes.
+* O botao de adicionar conviodado na inscricão do evento do lado do aluno, só deve aparecer se o campo permite convidados for true.
 * As oficinas devem aparecer para o aluno com base na sua unidade de cadastro(campo grande, barra ou recreio). As oficinas tambem vao ter unidades, entao se um aluno for de campo grande, apenas oficinas com a tag de campoo grande aparecerão para ele e vice-versa.
 * O carrossel deve mostrar todas as oficinas, independentemente da unidade do aluno, é apenas um mostruário.
 * O aluno pode modificar sua unidade de cadastro em qualquer momento. Se ele modificar a unidade e ja estiver inscrito em uma oficina, o sisteme deve alertá-lo que as inscrições feitas serão deletadas e etc.

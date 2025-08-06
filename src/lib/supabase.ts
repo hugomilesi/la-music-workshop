@@ -10,7 +10,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    flowType: 'pkce'
+    flowType: 'pkce',
+    storageKey: 'la-music-week-auth' // Chave única para evitar conflitos
   },
   realtime: {
     params: {
@@ -22,6 +23,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: {
     headers: {
       'x-client-info': 'la-music-week@1.0.0'
+    },
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(30000) // 30 segundos timeout
+      })
     }
   }
 })
@@ -30,7 +37,19 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
-    persistSession: false
+    persistSession: false,
+    storageKey: 'la-music-week-admin-auth' // Chave única para admin
+  },
+  global: {
+    headers: {
+      'x-client-info': 'la-music-week-admin@1.0.0'
+    },
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(30000) // 30 segundos timeout
+      })
+    }
   }
 })
 

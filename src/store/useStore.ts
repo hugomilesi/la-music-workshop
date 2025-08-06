@@ -146,6 +146,11 @@ interface StoreState {
   // Auth
   user: User | null;
   
+  // Cache control
+  _workshopsCache: Map<string, Workshop[]>;
+  _lastWorkshopsFetch: number;
+  _workshopsFetching: boolean;
+  
   // Actions
   setCurrentStep: (step: number) => void;
   addWorkshop: (workshopId: string) => void;
@@ -164,8 +169,8 @@ interface StoreState {
   deleteUser: (userId: string) => Promise<void>;
   
   // CRUD actions
-  createWorkshop: (workshop: Omit<SupabaseWorkshop, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
-  updateWorkshop: (id: string, updates: Partial<SupabaseWorkshop>) => Promise<void>;
+  createWorkshop: (workshop: Omit<Workshop, 'id' | 'created_at' | 'updated_at'>) => Promise<any>;
+  updateWorkshop: (id: string, updates: Partial<Workshop>) => Promise<any>;
   deleteWorkshop: (id: string) => Promise<void>;
   
   createReminder: (reminder: Omit<LembreteAutomatico, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
@@ -250,6 +255,10 @@ export const useStore = create<StoreState>((set, get) => ({
     users: false
   },
   user: null,
+  // Cache control
+  _workshopsCache: new Map(),
+  _lastWorkshopsFetch: 0,
+  _workshopsFetching: false,
   
   // Basic actions
   setCurrentStep: (step) => set({ currentStep: step }),
@@ -282,52 +291,239 @@ export const useStore = create<StoreState>((set, get) => ({
   
   // Data fetching actions
   fetchWorkshops: async (unitId?: string) => {
-    set((state) => ({ loading: { ...state.loading, workshops: true } }));
+    const state = get();
+    const cacheKey = unitId || 'all';
+    const now = Date.now();
+    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos para reduzir chamadas
+    
+    console.log('🔍 fetchWorkshops chamado com unitId:', unitId);
+    
+    // Verificar se já está buscando
+    if (state._workshopsFetching) {
+      console.log('⏳ Já está buscando workshops, aguardando...');
+      return;
+    }
+    
+    // Verificar cache mais rigoroso
+    const cachedData = state._workshopsCache.get(cacheKey);
+    if (cachedData && (now - state._lastWorkshopsFetch) < CACHE_DURATION) {
+      console.log('📦 Usando dados do cache para:', cacheKey, 'workshops:', cachedData.length);
+      // Não fazer set se os dados já são os mesmos
+      if (state.workshops !== cachedData) {
+        set({ workshops: cachedData });
+      }
+      return;
+    }
+    
+    set((state) => ({ 
+      loading: { ...state.loading, workshops: true },
+      _workshopsFetching: true 
+    }));
+    
     try {
+      console.log('🚀 Iniciando consulta ao Supabase...');
+      
       let query = supabase
         .from('workshops')
         .select(`
           *,
-          unidades!unit_id(id, nome)
+          unidades(nome)
         `)
         .eq('status', 'ativa')
-        .order('data_inicio', { ascending: true });
+        .order('created_at', { ascending: false });
       
-      // Se unitId for fornecido, filtrar por unidade
       if (unitId) {
         query = query.eq('unit_id', unitId);
       }
       
       const { data, error } = await query;
       
+      console.log('📊 Resultado da query:', { data, error, dataLength: data?.length });
+      
       if (error) {
-        console.error('Erro na consulta Supabase:', error);
-        // Não quebrar a aplicação por erro de consulta
-        if (error.code === '42501' || error.code === '42P17') {
-          console.warn('Problema de permissão/política RLS, usando dados vazios...');
-          set({ workshops: [] });
-          return;
-        }
-        // Para outros erros, também não quebrar
-        console.warn('Erro de consulta, usando dados vazios:', error.message);
-        set({ workshops: [] });
+        console.error('❌ Erro na consulta de workshops:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        console.warn('⚠️ Nenhum dado retornado, usando array vazio');
+        const emptyWorkshops: Workshop[] = [];
+        set({ workshops: emptyWorkshops });
         return;
       }
       
-      const workshops = data?.map(convertWorkshopFromSupabase) || [];
-      set({ workshops });
+      console.log('✅ Dados recebidos:', data.length, 'workshops');
+      
+      // Transform data to match frontend interface
+      const workshops = data.map(workshop => ({
+        ...workshop,
+        unidade: workshop.unidades?.nome || 'Não informado',
+        title: workshop.nome,
+        description: workshop.descricao,
+        instructor: 'Instrutor',
+        duration: workshop.data_fim && workshop.data_inicio 
+          ? `${Math.round((new Date(workshop.data_fim).getTime() - new Date(workshop.data_inicio).getTime()) / (1000 * 60 * 60))} horas`
+          : '3 horas',
+        level: workshop.nivel,
+        category: workshop.instrumento,
+        maxParticipants: workshop.capacidade,
+        currentParticipants: (workshop.capacidade || 0) - (workshop.vagas_disponiveis || 0),
+        price: workshop.preco,
+        rating: 4.5,
+        image: `https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent((workshop.instrumento || 'music') + '_lesson_modern_music_studio')}&image_size=landscape_4_3`,
+        schedule: [workshop.data_inicio ? new Date(workshop.data_inicio).toLocaleString('pt-BR') : 'Data não definida']
+      }));
+      
+      console.log('🔄 Workshops convertidos:', workshops.length)
+      
+      // Atualizar estado apenas se os dados mudaram
+      set((state) => {
+        const newCache = new Map(state._workshopsCache);
+        newCache.set(cacheKey, workshops);
+        return {
+          workshops,
+          _workshopsCache: newCache,
+          _lastWorkshopsFetch: now
+        };
+      });
+      
+      console.log('✨ fetchWorkshops concluído com sucesso!');
+      
     } catch (error: any) {
-      console.error('Erro ao buscar workshops:', error);
-      // Tratar erros de rede de forma mais suave
-      if (error.message?.includes('Failed to fetch') || error.name === 'TypeError') {
-        console.warn('Problema de conectividade, usando dados vazios...');
-        set({ workshops: [] });
-      } else {
-        console.warn('Erro inesperado, usando dados vazios:', error.message);
-        set({ workshops: [] });
-      }
+      console.error('💥 Erro em fetchWorkshops:', error);
+      const emptyWorkshops: Workshop[] = [];
+      set({ workshops: emptyWorkshops });
+      
     } finally {
-      set((state) => ({ loading: { ...state.loading, workshops: false } }));
+      set((state) => ({ 
+        loading: { ...state.loading, workshops: false },
+        _workshopsFetching: false 
+      }));
+    }
+  },
+
+  // Workshop CRUD operations
+  createWorkshop: async (workshopData: Omit<Workshop, 'id' | 'created_at' | 'updated_at'>) => {
+    try {
+      console.log('Creating workshop:', workshopData);
+      
+      const { data, error } = await supabase
+        .from('workshops')
+        .insert({
+          nome: workshopData.nome || workshopData.title,
+          descricao: workshopData.descricao || workshopData.description,
+          data_inicio: workshopData.data_inicio,
+          data_fim: workshopData.data_fim,
+          local: workshopData.local,
+          capacidade: workshopData.capacidade || workshopData.maxParticipants,
+          preco: workshopData.preco || workshopData.price,
+          instrumento: workshopData.instrumento || workshopData.category,
+          nivel: workshopData.nivel || workshopData.level,
+          vagas_disponiveis: workshopData.vagas_disponiveis || workshopData.capacidade || workshopData.maxParticipants,
+          status: workshopData.status || 'ativa',
+          unit_id: workshopData.unit_id,
+          idade_minima: workshopData.idade_minima || 0,
+          idade_maxima: workshopData.idade_maxima || 100
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating workshop:', error);
+        throw error;
+      }
+
+      console.log('Workshop created successfully:', data);
+      
+      // Refresh workshops list
+      await get().fetchWorkshops();
+      
+      return data;
+    } catch (error) {
+      console.error('Error in createWorkshop:', error);
+      throw error;
+    }
+  },
+
+  updateWorkshop: async (id: string, workshopData: Partial<Workshop>) => {
+    try {
+      console.log('Updating workshop:', id, workshopData);
+      
+      const updateData: any = {};
+      
+      if (workshopData.nome || workshopData.title) updateData.nome = workshopData.nome || workshopData.title;
+      if (workshopData.descricao || workshopData.description) updateData.descricao = workshopData.descricao || workshopData.description;
+      if (workshopData.data_inicio) updateData.data_inicio = workshopData.data_inicio;
+      if (workshopData.data_fim) updateData.data_fim = workshopData.data_fim;
+      if (workshopData.local) updateData.local = workshopData.local;
+      if (workshopData.capacidade || workshopData.maxParticipants) updateData.capacidade = workshopData.capacidade || workshopData.maxParticipants;
+      if (workshopData.preco !== undefined || workshopData.price !== undefined) updateData.preco = workshopData.preco ?? workshopData.price;
+      if (workshopData.instrumento || workshopData.category) updateData.instrumento = workshopData.instrumento || workshopData.category;
+      if (workshopData.nivel || workshopData.level) updateData.nivel = workshopData.nivel || workshopData.level;
+      if (workshopData.vagas_disponiveis !== undefined) updateData.vagas_disponiveis = workshopData.vagas_disponiveis;
+      if (workshopData.status) updateData.status = workshopData.status;
+      if (workshopData.unit_id) updateData.unit_id = workshopData.unit_id;
+      if (workshopData.idade_minima !== undefined) updateData.idade_minima = workshopData.idade_minima;
+      if (workshopData.idade_maxima !== undefined) updateData.idade_maxima = workshopData.idade_maxima;
+      
+      const { data, error } = await supabase
+        .from('workshops')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating workshop:', error);
+        throw error;
+      }
+
+      console.log('Workshop updated successfully:', data);
+      
+      // Refresh workshops list
+      await get().fetchWorkshops();
+      
+      return data;
+    } catch (error) {
+      console.error('Error in updateWorkshop:', error);
+      throw error;
+    }
+  },
+
+  deleteWorkshop: async (id: string) => {
+    try {
+      console.log('Deleting workshop:', id);
+      
+      // First, delete all related inscricoes
+      const { error: inscricoesError } = await supabase
+        .from('inscricoes')
+        .delete()
+        .eq('workshop_id', id);
+
+      if (inscricoesError) {
+        console.error('Error deleting related inscricoes:', inscricoesError);
+        throw inscricoesError;
+      }
+      
+      // Then delete the workshop
+      const { error } = await supabase
+        .from('workshops')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting workshop:', error);
+        throw error;
+      }
+
+      console.log('Workshop deleted successfully');
+      
+      // Refresh workshops list
+      await get().fetchWorkshops();
+      
+    } catch (error) {
+      console.error('Error in deleteWorkshop:', error);
+      throw error;
     }
   },
   
@@ -427,59 +623,6 @@ export const useStore = create<StoreState>((set, get) => ({
       console.error('Erro ao buscar mensagens:', error);
     } finally {
       set((state) => ({ loading: { ...state.loading, messages: false } }));
-    }
-  },
-  
-  // CRUD actions
-  createWorkshop: async (workshop) => {
-    try {
-      const { data, error } = await supabase
-        .from('workshops')
-        .insert([workshop])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      // Refresh workshops
-      get().fetchWorkshops();
-    } catch (error) {
-      console.error('Erro ao criar workshop:', error);
-      throw error;
-    }
-  },
-  
-  updateWorkshop: async (id, updates) => {
-    try {
-      const { error } = await supabase
-        .from('workshops')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      // Refresh workshops
-      get().fetchWorkshops();
-    } catch (error) {
-      console.error('Erro ao atualizar workshop:', error);
-      throw error;
-    }
-  },
-  
-  deleteWorkshop: async (id) => {
-    try {
-      const { error } = await supabase
-        .from('workshops')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      // Refresh workshops
-      get().fetchWorkshops();
-    } catch (error) {
-      console.error('Erro ao deletar workshop:', error);
-      throw error;
     }
   },
   
@@ -618,12 +761,13 @@ export const useStore = create<StoreState>((set, get) => ({
       
       const userTableId = userRecord.id;
       
-      // Verificar se o usuário já está inscrito
+      // Verificar se o usuário já está inscrito (apenas inscrições ativas)
       const { data: existingRegistration, error: checkError } = await supabase
         .from('inscricoes')
-        .select('id')
+        .select('id, status_inscricao')
         .eq('workshop_id', workshopId)
         .eq('user_id', userTableId)
+        .neq('status_inscricao', 'cancelada') // Excluir inscrições canceladas
         .maybeSingle();
       
       if (checkError) {

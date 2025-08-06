@@ -1,12 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+// Usar as instâncias já criadas no supabase.ts para evitar múltiplas instâncias
+import { supabase, supabaseAdmin } from './supabase';
 
-// Cliente Supabase com service_role_key para operações de email
-const supabaseUrl = 'https://xfqgcfeoswlkcgdtikco.supabase.co';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmcWdjZmVvc3dsa2NnZHRpa2NvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDU1NTM2MywiZXhwIjoyMDY2MTMxMzYzfQ.zSlz36DiKkMjAyiaJYPeIUpispPd2emykGxD07bP3WI';
-const supabaseEmail = createClient(supabaseUrl, supabaseServiceKey);
-
-// Cliente Supabase padrão para outras operações
-import { supabase } from './supabase';
+// Usar supabaseAdmin para operações de email (tem service_role_key)
+const supabaseEmail = supabaseAdmin;
 
 interface EmailTemplate {
   name: string;

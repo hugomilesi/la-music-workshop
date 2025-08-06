@@ -5,6 +5,7 @@ import Card from '@/components/Card';
 import Button from '@/components/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { sendRegistrationConfirmation } from '@/utils/whatsapp';
 
 interface Unidade {
   id: string;
@@ -163,6 +164,24 @@ export default function Register() {
       console.log('🎉 Cadastro realizado com sucesso!');
       setSuccess('Conta criada com sucesso! ✅\n\nIMPORTANTE: Verifique sua caixa de entrada e clique no link de confirmação antes de tentar fazer login.\n\nSem a confirmação do email, você não conseguirá acessar o sistema.');
       
+      // Enviar mensagem de confirmação via WhatsApp
+      try {
+        console.log('📱 Enviando mensagem de confirmação via WhatsApp...');
+        const whatsappResult = await sendRegistrationConfirmation(
+          formData.telefone,
+          formData.nome_completo
+        );
+        
+        if (whatsappResult.success) {
+          console.log('✅ Mensagem WhatsApp enviada com sucesso!');
+        } else {
+          console.warn('⚠️ Falha ao enviar mensagem WhatsApp:', whatsappResult.error);
+        }
+      } catch (whatsappError) {
+        console.error('❌ Erro ao enviar mensagem WhatsApp:', whatsappError);
+        // Não interromper o fluxo se o WhatsApp falhar
+      }
+      
       console.log('⏰ Redirecionando para login em 5 segundos...');
       // Redirecionar após 5 segundos para dar tempo de ler a mensagem
       setTimeout(() => {
@@ -193,31 +212,31 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4 py-8">
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-purple-500/20 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-pink-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
+        <div className="absolute top-1/4 left-1/4 w-32 h-32 md:w-64 md:h-64 bg-purple-500/20 rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 md:w-96 md:h-96 bg-pink-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 md:w-80 md:h-80 bg-blue-500/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
       </div>
 
       <div className="relative z-10 w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-primary rounded-full mb-4 glow-purple">
-            <Music className="w-8 h-8 text-white" />
+        <div className="text-center mb-6 md:mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 md:w-16 md:h-16 bg-gradient-primary rounded-full mb-3 md:mb-4 glow-purple">
+            <Music className="w-6 h-6 md:w-8 md:h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2 font-inter glow">
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 font-inter glow">
             LA Music Week
           </h1>
-          <p className="text-white/70 font-source">
+          <p className="text-sm md:text-base text-white/70 font-source">
             Criar Nova Conta
           </p>
         </div>
 
         {/* Register Form */}
-        <Card className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <Card className="p-4 md:p-8">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             {/* Nome Completo */}
             <div>
               <label htmlFor="nomeCompleto" className="block text-sm font-medium text-white mb-2">
@@ -231,7 +250,7 @@ export default function Register() {
                   type="text"
                   value={formData.nome_completo}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="Seu nome completo"
                   required
                 />
@@ -251,7 +270,7 @@ export default function Register() {
                   type="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="seu@email.com"
                   required
                 />
@@ -271,7 +290,7 @@ export default function Register() {
                   type="tel"
                   value={formData.telefone}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="(11) 99999-9999"
                   required
                 />
@@ -291,7 +310,7 @@ export default function Register() {
                   type="date"
                   value={formData.data_nascimento}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   required
                 />
               </div>
@@ -309,7 +328,7 @@ export default function Register() {
                   name="unit_id"
                   value={formData.unit_id}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all appearance-none"
+                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all appearance-none text-base"
                   required
                 >
                   <option value="" className="bg-gray-800 text-white">
@@ -337,7 +356,7 @@ export default function Register() {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-12 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="••••••••"
                   required
                 />
@@ -364,7 +383,7 @@ export default function Register() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-12 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="••••••••"
                   required
                 />
@@ -394,20 +413,27 @@ export default function Register() {
               type="submit"
               variant="primary"
               size="lg"
-              className="w-full"
+              className="w-full py-4 md:py-3 text-base font-medium"
               disabled={isLoading}
             >
-              {isLoading ? 'Criando conta...' : 'Criar Conta'}
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Criando conta...
+                </div>
+              ) : (
+                'Criar Conta'
+              )}
             </Button>
           </form>
 
           {/* Login Link */}
-          <div className="text-center mt-6">
-            <p className="text-white/70 text-sm">
+          <div className="text-center mt-4 md:mt-6">
+            <p className="text-white/70 text-sm md:text-base">
               Já tem uma conta?{' '}
               <button
                 onClick={() => navigate('/login')}
-                className="text-purple-400 hover:text-purple-300 transition-colors"
+                className="text-purple-400 hover:text-purple-300 font-medium transition-colors"
               >
                 Fazer login
               </button>
@@ -416,12 +442,13 @@ export default function Register() {
         </Card>
 
         {/* Back to Home */}
-        <div className="text-center mt-6">
+        <div className="text-center mt-3 md:mt-6">
           <Button
             variant="glass"
             onClick={() => navigate('/')}
+            className="text-sm md:text-base py-2"
           >
-            Voltar ao Site
+            ← Voltar ao Site
           </Button>
         </div>
       </div>

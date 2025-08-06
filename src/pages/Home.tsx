@@ -19,8 +19,12 @@ export default function Home() {
   useEffect(() => {
     // Para a página home, o carrossel deve mostrar TODAS as oficinas independente da unidade
     // conforme especificado no todo.md: "O carrossel deve mostrar todas as oficinas, independentemente da unidade do aluno"
-    fetchWorkshops(); // Sem filtro de unidade para mostrar todas as oficinas
-  }, [fetchWorkshops]);
+    // Só buscar se ainda não tivermos dados e não estiver carregando
+    if (workshops.length === 0 && !loading.workshops) {
+      console.log('🏠 Home: Buscando todas as oficinas para o carrossel');
+      fetchWorkshops(); // Sem filtro de unidade para mostrar todas as oficinas
+    }
+  }, []); // Remover dependências que causam loops
   // Calcular dados dinâmicos das oficinas
   const getDynamicFeatures = () => {
     const totalWorkshops = workshops.filter(w => w.status === 'ativa').length;
@@ -133,26 +137,27 @@ export default function Home() {
         {/* Animated Background */}
         <div className="absolute inset-0 bg-gradient-hero animate-gradient" />
         
-        {/* Floating Elements */}
-        <div className="absolute top-20 left-10 w-20 h-20 bg-white/10 rounded-full animate-float" />
-        <div className="absolute top-40 right-20 w-16 h-16 bg-purple-400/20 rounded-full animate-bounce-slow" />
-        <div className="absolute bottom-40 left-20 w-12 h-12 bg-pink-400/20 rounded-full animate-pulse-slow" />
+        {/* Floating Elements - Responsive sizes */}
+        <div className="absolute top-20 left-4 md:left-10 w-12 h-12 md:w-20 md:h-20 bg-white/10 rounded-full animate-float" />
+        <div className="absolute top-40 right-4 md:right-20 w-10 h-10 md:w-16 md:h-16 bg-purple-400/20 rounded-full animate-bounce-slow" />
+        <div className="absolute bottom-40 left-4 md:left-20 w-8 h-8 md:w-12 md:h-12 bg-pink-400/20 rounded-full animate-pulse-slow" />
         
         <div className="container mx-auto px-4 text-center relative z-10">
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 glow font-inter">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 md:mb-6 glow font-inter leading-tight">
               LA Music Week
             </h1>
-            <p className="text-xl md:text-2xl text-white/90 mb-8 font-source leading-relaxed">Uma imersão sonora do seu jeito, no nosso ritmo. 
+            <p className="text-lg sm:text-xl md:text-2xl text-white/90 mb-6 md:mb-8 font-source leading-relaxed px-2">Uma imersão sonora do seu jeito, no nosso ritmo. 
  
  Desperte sua paixão pela música com nossas oficinas exclusivas. Violão, piano, bateria, canto e muito mais te esperam!</p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center items-center px-2">
               <Button
                 size="lg"
                 variant="primary"
-                icon={<ArrowRight className="w-6 h-6" />}
+                icon={<ArrowRight className="w-5 h-5 md:w-6 md:h-6" />}
                 asChild
+                className="w-full sm:w-auto min-h-[48px] text-base md:text-lg"
               >
                 <Link to="/inscricao">Quero me inscrever</Link>
               </Button>
@@ -160,21 +165,22 @@ export default function Home() {
               <Button
                 size="lg"
                 variant="glass"
-                icon={<Calendar className="w-6 h-6" />}
+                icon={<Calendar className="w-5 h-5 md:w-6 md:h-6" />}
                 asChild
+                className="w-full sm:w-auto min-h-[48px] text-base md:text-lg"
               >
                 <Link to="/oficinas">Ver Oficinas</Link>
               </Button>
             </div>
             
-            <div className="mt-6">
-              <p className="text-lg text-white/80 font-source">{getEventDateRange()}</p>
+            <div className="mt-4 md:mt-6">
+              <p className="text-base md:text-lg text-white/80 font-source">{getEventDateRange()}</p>
             </div>
           </div>
         </div>
         
-        {/* Scroll Indicator */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+        {/* Scroll Indicator - Hidden on mobile */}
+        <div className="hidden md:block absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
           <div className="w-6 h-10 border-2 border-white/50 rounded-full flex justify-center">
             <div className="w-1 h-3 bg-white/70 rounded-full mt-2 animate-pulse" />
           </div>
@@ -182,31 +188,31 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 relative">
+      <section className="py-12 md:py-20 relative">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 font-inter">
+          <div className="text-center mb-12 md:mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 md:mb-6 font-inter px-2">
               Por que escolher a LA Music Week?
             </h2>
-            <p className="text-xl text-white/80 max-w-3xl mx-auto font-source">
+            <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto font-source px-4">
               Uma experiência musical única que combina aprendizado, diversão e networking em um ambiente inspirador.
             </p>
           </div>
           
-          <div className="flex flex-wrap justify-center gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <Card key={index} className="text-center group w-full md:w-80">
-                  <div className="mb-6">
-                    <div className="w-16 h-16 mx-auto bg-gradient-primary rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <Icon className="w-8 h-8 text-white" />
+                <Card key={index} className="text-center group p-6 md:p-8">
+                  <div className="mb-4 md:mb-6">
+                    <div className="w-12 h-12 md:w-16 md:h-16 mx-auto bg-gradient-primary rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                      <Icon className="w-6 h-6 md:w-8 md:h-8 text-white" />
                     </div>
                   </div>
-                  <h3 className="text-xl font-semibold text-white mb-4 font-inter">
+                  <h3 className="text-lg md:text-xl font-semibold text-white mb-3 md:mb-4 font-inter">
                     {feature.title}
                   </h3>
-                  <p className="text-white/80 font-source leading-relaxed">
+                  <p className="text-sm md:text-base text-white/80 font-source leading-relaxed">
                     {feature.description}
                   </p>
                 </Card>
@@ -217,13 +223,13 @@ export default function Home() {
       </section>
 
       {/* Workshops Preview */}
-      <section className="py-20">
+      <section className="py-12 md:py-20">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 font-inter">
+          <div className="text-center mb-12 md:mb-16">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 md:mb-6 font-inter px-2">
               Oficinas em Destaque
             </h2>
-            <p className="text-xl text-white/80 max-w-3xl mx-auto font-source">
+            <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto font-source px-4">
               Conheça algumas das oficinas que farão parte da LA Music Week.
             </p>
           </div>
@@ -326,66 +332,66 @@ export default function Home() {
       </section>
 
       {/* Contact Section */}
-      <section className="py-20">
+      <section className="py-12 md:py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <Card className="text-center">
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 font-inter">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4 md:mb-6 font-inter px-2">
                 Entre em Contato
               </h2>
-              <p className="text-xl text-white/80 mb-8 font-source">
+              <p className="text-lg md:text-xl text-white/80 mb-6 md:mb-8 font-source px-4">
                 Tem dúvidas? Nossa equipe está pronta para ajudar você!
               </p>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 max-w-4xl mx-auto">
                 {/* Primeira linha */}
-                <div className="flex flex-col items-center space-y-4 p-8 min-h-[180px] bg-white/5 rounded-xl border border-white/10">
-                  <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center">
-                    <Phone className="w-7 h-7 text-white" />
+                <div className="flex flex-col items-center space-y-3 md:space-y-4 p-4 md:p-8 min-h-[140px] md:min-h-[180px] bg-white/5 rounded-xl border border-white/10">
+                  <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-primary rounded-full flex items-center justify-center">
+                    <Phone className="w-5 h-5 md:w-7 md:h-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold text-white text-center">Recreio</h3>
-                  <div className="text-center space-y-3">
-                    <p className="text-white/90 text-base font-medium">21 97560-6206</p>
-                    <p className="text-white/70 text-sm leading-relaxed">
+                  <h3 className="text-lg md:text-xl font-semibold text-white text-center">Recreio</h3>
+                  <div className="text-center space-y-2 md:space-y-3">
+                    <p className="text-white/90 text-sm md:text-base font-medium">21 97560-6206</p>
+                    <p className="text-white/70 text-xs md:text-sm leading-relaxed">
                       atendimento.recreio@lamusicschool.com.br
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex flex-col items-center space-y-4 p-8 min-h-[180px] bg-white/5 rounded-xl border border-white/10">
-                  <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center">
-                    <Phone className="w-7 h-7 text-white" />
+                <div className="flex flex-col items-center space-y-3 md:space-y-4 p-4 md:p-8 min-h-[140px] md:min-h-[180px] bg-white/5 rounded-xl border border-white/10">
+                  <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-primary rounded-full flex items-center justify-center">
+                    <Phone className="w-5 h-5 md:w-7 md:h-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold text-white text-center">Barra</h3>
-                  <div className="text-center space-y-3">
-                    <p className="text-white/90 text-base font-medium">21 96957-5619</p>
-                    <p className="text-white/70 text-sm leading-relaxed">
+                  <h3 className="text-lg md:text-xl font-semibold text-white text-center">Barra</h3>
+                  <div className="text-center space-y-2 md:space-y-3">
+                    <p className="text-white/90 text-sm md:text-base font-medium">21 96957-5619</p>
+                    <p className="text-white/70 text-xs md:text-sm leading-relaxed">
                       atendimento2.barra@lamusicschool.com.br
                     </p>
                   </div>
                 </div>
                 
                 {/* Segunda linha */}
-                <div className="flex flex-col items-center space-y-4 p-8 min-h-[180px] bg-white/5 rounded-xl border border-white/10">
-                  <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center">
-                    <Phone className="w-7 h-7 text-white" />
+                <div className="flex flex-col items-center space-y-3 md:space-y-4 p-4 md:p-8 min-h-[140px] md:min-h-[180px] bg-white/5 rounded-xl border border-white/10">
+                  <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-primary rounded-full flex items-center justify-center">
+                    <Phone className="w-5 h-5 md:w-7 md:h-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold text-white text-center">Campo Grande</h3>
-                  <div className="text-center space-y-3">
-                    <p className="text-white/90 text-base font-medium">21 97361-4083</p>
-                    <p className="text-white/70 text-sm leading-relaxed">
+                  <h3 className="text-lg md:text-xl font-semibold text-white text-center">Campo Grande</h3>
+                  <div className="text-center space-y-2 md:space-y-3">
+                    <p className="text-white/90 text-sm md:text-base font-medium">21 97361-4083</p>
+                    <p className="text-white/70 text-xs md:text-sm leading-relaxed">
                       atendimento2.cg@lamusicschool.com.br
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex flex-col items-center space-y-4 p-8 min-h-[180px] bg-white/5 rounded-xl border border-white/10">
-                  <div className="w-14 h-14 bg-gradient-primary rounded-full flex items-center justify-center">
-                    <MapPin className="w-7 h-7 text-white" />
+                <div className="flex flex-col items-center space-y-3 md:space-y-4 p-4 md:p-8 min-h-[140px] md:min-h-[180px] bg-white/5 rounded-xl border border-white/10">
+                  <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-primary rounded-full flex items-center justify-center">
+                    <MapPin className="w-5 h-5 md:w-7 md:h-7 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold text-white text-center">Localização</h3>
+                  <h3 className="text-lg md:text-xl font-semibold text-white text-center">Localização</h3>
                   <div className="text-center">
-                    <p className="text-white/90 text-base font-medium">Rio de Janeiro, RJ</p>
+                    <p className="text-white/90 text-sm md:text-base font-medium">Rio de Janeiro, RJ</p>
                   </div>
                 </div>
               </div>
@@ -395,9 +401,9 @@ export default function Home() {
       </section>
       
       {/* Footer */}
-      <footer className="py-8 border-t border-white/20">
+      <footer className="py-6 md:py-8 border-t border-white/20">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-white/60 font-source">
+          <p className="text-sm md:text-base text-white/60 font-source">
             © 2024 LA Music Week. Todos os direitos reservados.
           </p>
         </div>

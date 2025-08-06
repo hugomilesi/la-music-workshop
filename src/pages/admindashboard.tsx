@@ -81,20 +81,23 @@ export default function AdminDashboard() {
     userId: '',
     userName: ''
   });
+  const [showMobileNav, setShowMobileNav] = useState(false);
 
   useEffect(() => {
-    // Só buscar workshops quando o perfil estiver carregado
-    if (!profileLoading && profile) {
+    // Só buscar workshops quando o perfil estiver carregado e ainda não tivermos dados
+    if (!profileLoading && profile && workshops.length === 0) {
       // Se for admin, buscar todas as oficinas (sem filtro)
       // Se não for admin, filtrar por unidade
       const unitId = profile.user_type === 'admin' ? undefined : profile.unit_id;
       fetchWorkshops(unitId);
     }
-    
-    if (activeTab === 'users') {
+  }, [profile?.id, profileLoading]); // Usar apenas profile.id para evitar loops
+  
+  useEffect(() => {
+    if (activeTab === 'users' && users.length === 0) {
       fetchUsers();
     }
-  }, [fetchWorkshops, fetchUsers, activeTab, profile, profileLoading]);
+  }, [activeTab]); // Remover dependências que causam loops
 
   useEffect(() => {
     if (!authUser && !authLoading) {
@@ -124,9 +127,7 @@ export default function AdminDashboard() {
     navigate('/admin/workshop/new');
   };
 
-  const handleManageWorkshops = () => {
-    setActiveTab('workshops');
-  };
+
 
   const handleFilterWorkshops = (unit: string) => {
     setSelectedUnit(unit);
@@ -392,144 +393,218 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
     <div className="min-h-screen">
       {/* Header */}
       <header className="bg-white/10 backdrop-blur-md border-b border-white/20">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0">
+            <div className="flex items-center space-x-3 sm:space-x-4">
               <img 
                 src="/assets/lamusic.png" 
                 alt="LA Music Week" 
-                className="w-16 h-16 object-contain"
+                className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 object-contain"
               />
               <div>
-                <h1 className="text-xl font-bold text-white font-inter">LA Music Week</h1>
-                <p className="text-white/60 text-sm">Painel Administrativo</p>
+                <h1 className="text-base sm:text-lg md:text-xl font-bold text-white font-inter">LA Music Week</h1>
+                <p className="text-white/60 text-xs sm:text-sm">Painel Administrativo</p>
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <span className="text-white/80">Olá, {authUser?.user_metadata?.name || authUser?.email}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/')}
-                className="text-white/80 border-white/20 hover:bg-white/10"
-              >
-                Página Principal
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  await signOut();
-                  navigate('/login');
-                }}
-              >
-                Sair
-              </Button>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+              <span className="text-white/80 text-xs sm:text-sm md:text-base truncate max-w-40 sm:max-w-48 md:max-w-none">
+                Olá, {authUser?.user_metadata?.name || authUser?.email}
+              </span>
+              <div className="flex space-x-2 w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/')}
+                  className="text-white/80 border-white/20 hover:bg-white/10 flex-1 sm:flex-none min-h-[44px] text-xs sm:text-sm justify-center"
+                >
+                  <span className="hidden sm:inline">Página Principal</span>
+                  <span className="sm:hidden">Início</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    await signOut();
+                    navigate('/login');
+                  }}
+                  className="flex-1 sm:flex-none min-h-[44px] text-xs sm:text-sm justify-center"
+                >
+                  Sair
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       {/* Navigation Tabs */}
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex flex-wrap gap-1 bg-white/10 rounded-lg p-1 mb-8 w-full max-w-none lg:max-w-4xl xl:max-w-5xl">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeTab === 'overview'
-                ? 'bg-white/20 text-white'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            Visão Geral
-          </button>
-          <button
-            onClick={() => setActiveTab('workshops')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeTab === 'workshops'
-                ? 'bg-white/20 text-white'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            Oficinas
-          </button>
-          <button
-            onClick={() => setActiveTab('students')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeTab === 'students'
-                ? 'bg-white/20 text-white'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >Inscritos</button>
-          <button
-            onClick={() => setActiveTab('guests')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-              activeTab === 'guests'
-                ? 'bg-white/20 text-white'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            Convidados
-          </button>
-          <button
-            onClick={() => setActiveTab('reminders')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-              activeTab === 'reminders'
-                ? 'bg-white/20 text-white'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            Lembretes
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-              activeTab === 'settings'
-                ? 'bg-white/20 text-white'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <Settings className="w-4 h-4" />
-            Configurações
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-              activeTab === 'users'
-                ? 'bg-white/20 text-white'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            Usuários
-          </button>
+      <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 md:py-6">
+        {/* Mobile Navigation - Dropdown */}
+        <div className="block md:hidden mb-4 sm:mb-6">
+          <div className="relative">
+            <button
+              onClick={() => setShowMobileNav(!showMobileNav)}
+              className="flex items-center justify-between w-full px-4 py-3 bg-white/10 rounded-lg text-white border border-white/20 h-12"
+            >
+              <div className="flex items-center space-x-2">
+                {activeTab === 'overview' && <BarChart3 className="w-4 h-4" />}
+                {activeTab === 'workshops' && <Music className="w-4 h-4" />}
+                {activeTab === 'manage-workshops' && <Settings className="w-4 h-4" />}
+                {activeTab === 'students' && <Users className="w-4 h-4" />}
+                {activeTab === 'guests' && <Users className="w-4 h-4" />}
+                {activeTab === 'reminders' && <Clock className="w-4 h-4" />}
+                {activeTab === 'settings' && <Settings className="w-4 h-4" />}
+                {activeTab === 'users' && <Users className="w-4 h-4" />}
+                <span className="font-medium">
+                  {activeTab === 'overview' && 'Visão Geral'}
+                  {activeTab === 'workshops' && 'Oficinas'}
+                  {activeTab === 'manage-workshops' && 'Gerenciar Oficinas'}
+                  {activeTab === 'students' && 'Inscritos'}
+                  {activeTab === 'guests' && 'Convidados'}
+                  {activeTab === 'reminders' && 'Lembretes'}
+                  {activeTab === 'settings' && 'Configurações'}
+                  {activeTab === 'users' && 'Usuários'}
+                </span>
+              </div>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showMobileNav ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showMobileNav && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white/10 backdrop-blur-md rounded-lg border border-white/20 z-50">
+                {[
+                  { id: 'overview', label: 'Visão Geral', icon: <BarChart3 className="w-4 h-4" /> },
+                  { id: 'workshops', label: 'Oficinas', icon: <Music className="w-4 h-4" /> },
+                  { id: 'manage-workshops', label: 'Gerenciar Oficinas', icon: <Settings className="w-4 h-4" /> },
+                  { id: 'students', label: 'Inscritos', icon: <Users className="w-4 h-4" /> },
+                  { id: 'guests', label: 'Convidados', icon: <Users className="w-4 h-4" /> },
+                  { id: 'reminders', label: 'Lembretes', icon: <Clock className="w-4 h-4" /> },
+                  { id: 'settings', label: 'Configurações', icon: <Settings className="w-4 h-4" /> },
+                  { id: 'users', label: 'Usuários', icon: <Users className="w-4 h-4" /> }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      setShowMobileNav(false);
+                    }}
+                    className={`flex items-center space-x-3 w-full px-4 py-3 text-left transition-colors first:rounded-t-lg last:rounded-b-lg h-12 ${
+                      activeTab === tab.id
+                        ? 'bg-blue-500/20 text-blue-400'
+                        : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {tab.icon}
+                    <span className="font-medium">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Desktop Navigation - Horizontal Tabs */}
+        <div className="hidden md:block mb-6 lg:mb-8">
+          <div className="flex flex-wrap gap-1 bg-white/10 rounded-lg p-1 w-full max-w-none lg:max-w-4xl xl:max-w-5xl overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
+                activeTab === 'overview'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              Visão Geral
+            </button>
+            <button
+              onClick={() => setActiveTab('workshops')}
+              className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
+                activeTab === 'workshops'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >Oficinas</button>
+
+            <button
+              onClick={() => setActiveTab('students')}
+              className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
+                activeTab === 'students'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >Inscritos</button>
+            <button
+              onClick={() => setActiveTab('guests')}
+              className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'guests'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span className="hidden lg:inline">Convidados</span>
+              <span className="lg:hidden">Conv.</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('reminders')}
+              className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'reminders'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              <span className="hidden lg:inline">Lembretes</span>
+              <span className="lg:hidden">Lemb.</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'settings'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden lg:inline">Configurações</span>
+              <span className="lg:hidden">Config.</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'users'
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              Usuários
+            </button>
+          </div>
         </div>
 
         {/* Overview Tab */}
         {activeTab === 'overview' && (
-          <div className="space-y-8">
+          <div className="space-y-4 sm:space-y-6 lg:space-y-8">
             {/* Filter for Overview */}
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-white">Visão Geral</h2>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Visão Geral</h2>
               <div className="relative dropdown-container">
                 <button
                   onClick={() => setShowUnitDropdown(!showUnitDropdown)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md text-white rounded-lg hover:bg-white/20 transition-colors border border-white/20"
+                  className="flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-white/10 backdrop-blur-md text-white rounded-lg hover:bg-white/20 transition-colors border border-white/20 w-full sm:w-auto min-h-[44px] text-sm sm:text-base"
                 >
-                  <Filter className="w-4 h-4" />
-                  {selectedUnit === 'todas' ? 'Todas as Unidades' : selectedUnit}
-                  <ChevronDown className={`w-4 h-4 transition-transform ${showUnitDropdown ? 'rotate-180' : ''}`} />
+                  <Filter className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{selectedUnit === 'todas' ? 'Todas as Unidades' : selectedUnit}</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform flex-shrink-0 ${showUnitDropdown ? 'rotate-180' : ''}`} />
                 </button>
                 {showUnitDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white/10 backdrop-blur-md rounded-lg shadow-lg border border-white/20 z-10">
+                  <div className="absolute left-0 sm:right-0 mt-2 w-full sm:w-48 bg-white/10 backdrop-blur-md rounded-lg shadow-lg border border-white/20 z-10">
                     {availableUnits.map((unit) => (
                       <button
                         key={unit}
                         onClick={() => handleFilterWorkshops(unit)}
-                        className={`w-full text-left px-4 py-2 hover:bg-white/10 first:rounded-t-lg last:rounded-b-lg transition-colors ${
+                        className={`w-full text-left px-4 py-3 sm:py-2 hover:bg-white/10 first:rounded-t-lg last:rounded-b-lg transition-colors text-sm sm:text-base min-h-[44px] sm:min-h-auto ${
                           selectedUnit === unit ? 'bg-white/20 text-white' : 'text-white/80'
                         }`}
                       >
@@ -551,18 +626,18 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
             )}
             
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
               {stats.map((stat, index) => {
                 const Icon = stat.icon;
                 return (
-                  <Card key={index} className="p-6">
+                  <Card key={index} className="p-4 md:p-6">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-white/60 text-sm font-medium">{stat.title}</p>
-                        <p className="text-2xl font-bold text-white mt-1">{stat.value}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white/60 text-xs md:text-sm font-medium truncate">{stat.title}</p>
+                        <p className="text-xl md:text-2xl font-bold text-white mt-1">{stat.value}</p>
                       </div>
-                      <div className={`w-12 h-12 ${stat.bgColor} rounded-lg flex items-center justify-center`}>
-                        <Icon className={`w-6 h-6 ${stat.color}`} />
+                      <div className={`w-10 h-10 md:w-12 md:h-12 ${stat.bgColor} rounded-lg flex items-center justify-center ml-3`}>
+                        <Icon className={`w-5 h-5 md:w-6 md:h-6 ${stat.color}`} />
                       </div>
                     </div>
                   </Card>
@@ -571,10 +646,10 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
             </div>
 
             {/* Gráficos */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
               {/* Inscrições por Unidade */}
-              <Card className="p-6">
-                <div className="flex items-center justify-between mb-6">
+              <Card className="p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
                   <h3 className="text-lg font-semibold text-white">Inscrições por Unidade</h3>
                   <PieChart className="w-5 h-5 text-purple-400" />
                 </div>
@@ -624,7 +699,7 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
               </Card>
 
               {/* Oficinas Mais Populares */}
-              <Card className="p-6">
+              <Card className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-white">Oficinas Mais Populares</h3>
                   <BarChart3 className="w-5 h-5 text-green-400" />
@@ -662,7 +737,7 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
               </Card>
 
               {/* Evolução de Inscrições */}
-              <Card className="p-6">
+              <Card className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-semibold text-white">Evolução de Inscrições</h3>
                   <TrendingUp className="w-5 h-5 text-blue-400" />
@@ -704,36 +779,36 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
             </div>
 
             {/* Resumo Rápido */}
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold text-white mb-6">Resumo Rápido</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="p-4 md:p-6">
+              <h3 className="text-lg font-semibold text-white mb-4 md:mb-6">Resumo Rápido</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Calendar className="w-8 h-8 text-blue-400" />
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3">
+                    <Calendar className="w-6 h-6 md:w-8 md:h-8 text-blue-400" />
                   </div>
-                  <p className="text-2xl font-bold text-white">{registrations.filter(reg => {
+                  <p className="text-xl md:text-2xl font-bold text-white">{registrations.filter(reg => {
                     const today = new Date().toDateString();
                     return new Date(reg.createdAt).toDateString() === today;
                   }).length}</p>
-                  <p className="text-white/60 text-sm">Inscrições hoje</p>
+                  <p className="text-white/60 text-xs md:text-sm">Inscrições hoje</p>
                 </div>
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <MapPin className="w-8 h-8 text-green-400" />
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3">
+                    <MapPin className="w-6 h-6 md:w-8 md:h-8 text-green-400" />
                   </div>
-                  <p className="text-xl font-bold text-white">
+                  <p className="text-lg md:text-xl font-bold text-white">
                     {unitData.length > 0 ? unitData.reduce((prev, current) => (prev.value > current.value) ? prev : current).name : 'N/A'}
                   </p>
-                  <p className="text-white/60 text-sm">Unidade com mais inscrições</p>
+                  <p className="text-white/60 text-xs md:text-sm">Unidade com mais inscrições</p>
                 </div>
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Music className="w-8 h-8 text-purple-400" />
+                  <div className="w-12 h-12 md:w-16 md:h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-3">
+                    <Music className="w-6 h-6 md:w-8 md:h-8 text-purple-400" />
                   </div>
-                  <p className="text-xl font-bold text-white">
+                  <p className="text-lg md:text-xl font-bold text-white">
                     {popularWorkshopsData.length > 0 ? popularWorkshopsData[0].nome : 'N/A'}
                   </p>
-                  <p className="text-white/60 text-sm">Oficina mais procurada</p>
+                  <p className="text-white/60 text-xs md:text-sm">Oficina mais procurada</p>
                 </div>
               </div>
             </Card>
@@ -742,25 +817,26 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
 
         {/* Workshops Tab */}
         {activeTab === 'workshops' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-white">Gerenciar Oficinas</h2>
-              <div className="flex space-x-3">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Gerenciar Oficinas</h2>
+              <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative dropdown-container">
                   <Button 
                     variant="outline" 
                     icon={<Filter className="w-4 h-4" />} 
                     onClick={() => setShowUnitDropdown(!showUnitDropdown)}
+                    className="w-full sm:w-auto min-h-[44px] justify-center"
                   >
-                    {selectedUnit === 'todas' ? 'Todas as Unidades' : selectedUnit}
+                    <span className="truncate">{selectedUnit === 'todas' ? 'Todas as Unidades' : selectedUnit}</span>
                   </Button>
                   {showUnitDropdown && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white/10 backdrop-blur-md rounded-lg shadow-lg border border-white/20 z-10">
+                    <div className="absolute left-0 sm:right-0 mt-2 w-full sm:w-48 bg-white/10 backdrop-blur-md rounded-lg shadow-lg border border-white/20 z-10">
                       {availableUnits.map((unit) => (
                         <button
                           key={unit}
                           onClick={() => handleFilterWorkshops(unit)}
-                          className={`w-full text-left px-4 py-2 hover:bg-white/10 first:rounded-t-lg last:rounded-b-lg transition-colors ${
+                          className={`w-full text-left px-4 py-3 sm:py-2 hover:bg-white/10 first:rounded-t-lg last:rounded-b-lg transition-colors text-sm sm:text-base min-h-[44px] sm:min-h-auto ${
                             selectedUnit === unit ? 'bg-white/20 text-white' : 'text-white/80'
                           }`}
                         >
@@ -770,8 +846,9 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
                     </div>
                   )}
                 </div>
-                <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={handleNewWorkshop}>
-                  Nova Oficina
+                <Button variant="primary" icon={<Plus className="w-4 h-4" />} onClick={handleNewWorkshop} className="w-full sm:w-auto min-h-[44px] justify-center">
+                  <span className="hidden sm:inline">Nova Oficina</span>
+                  <span className="sm:hidden">Nova</span>
                 </Button>
               </div>
             </div>
@@ -785,7 +862,7 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
               {filteredWorkshops.map((workshop) => {
                 const getUnitColor = (unidade: string) => {
                   switch (unidade) {
@@ -805,7 +882,7 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
                 };
 
                 return (
-                  <Card key={workshop.id} className="group hover:scale-105 transition-all duration-300 cursor-pointer">
+                  <Card key={workshop.id} className="group hover:scale-105 transition-all duration-300 cursor-pointer p-4 sm:p-6">
                     {/* Image */}
                     <div className="relative overflow-hidden rounded-lg mb-4">
                       <img
@@ -912,28 +989,30 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
 
         {/* Students Tab */}
         {activeTab === 'students' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-white">Gerenciar Inscritos</h2>
-              <div className="flex space-x-3">
-                <Button variant="outline" icon={<Download className="w-4 h-4" />} onClick={handleExportStudents}>
-                  Exportar para CSV
+          <div className="space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Gerenciar Inscritos</h2>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button variant="outline" icon={<Download className="w-4 h-4" />} onClick={handleExportStudents} className="w-full sm:w-auto min-h-[44px] justify-center">
+                  <span className="hidden sm:inline">Exportar para CSV</span>
+                  <span className="sm:hidden">Exportar</span>
                 </Button>
                 <div className="relative dropdown-container">
                    <Button 
                      variant="outline" 
                      icon={<Filter className="w-4 h-4" />} 
                      onClick={() => setShowStudentUnitDropdown(!showStudentUnitDropdown)}
+                     className="w-full sm:w-auto min-h-[44px] justify-center"
                    >
-                     {selectedStudentUnit === 'todas' ? 'Todas as Unidades' : selectedStudentUnit}
+                     <span className="truncate">{selectedStudentUnit === 'todas' ? 'Todas as Unidades' : selectedStudentUnit}</span>
                    </Button>
                    {showStudentUnitDropdown && (
-                     <div className="absolute right-0 mt-2 w-48 bg-white/10 backdrop-blur-md rounded-lg shadow-lg border border-white/20 z-10">
+                     <div className="absolute left-0 sm:right-0 mt-2 w-full sm:w-48 bg-white/10 backdrop-blur-md rounded-lg shadow-lg border border-white/20 z-10">
                        {availableUnits.map((unit) => (
                          <button
                            key={unit}
                            onClick={() => handleFilterStudents(unit)}
-                           className={`w-full text-left px-4 py-2 hover:bg-white/10 first:rounded-t-lg last:rounded-b-lg transition-colors ${
+                           className={`w-full text-left px-4 py-3 sm:py-2 hover:bg-white/10 first:rounded-t-lg last:rounded-b-lg transition-colors text-sm sm:text-base min-h-[44px] sm:min-h-auto ${
                              selectedStudentUnit === unit ? 'bg-white/20 text-white' : 'text-white/80'
                            }`}
                          >
@@ -955,7 +1034,96 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
               </div>
             )}
 
-            <Card className="overflow-hidden">
+            {/* Mobile Cards - Students */}
+            <div className="block md:hidden space-y-3 sm:space-y-4">
+              {filteredRegistrations.map((registration) => (
+                <Card key={registration.id} className="p-3 sm:p-4">
+                  <div className="space-y-3">
+                    {/* Student Info */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-white">
+                          {registration.student.name}
+                        </h3>
+                        <p className="text-xs text-white/60">
+                          {registration.student.age} anos • {registration.student.email}
+                        </p>
+                      </div>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        registration.status === 'confirmada' 
+                          ? 'bg-green-500/20 text-green-300'
+                          : registration.status === 'pendente'
+                          ? 'bg-yellow-500/20 text-yellow-300'
+                          : 'bg-red-500/20 text-red-300'
+                      }`}>
+                        {registration.status === 'confirmada' ? 'Confirmado' :
+                         registration.status === 'pendente' ? 'Pendente' : 'Cancelado'}
+                      </span>
+                    </div>
+                    
+                    {/* Guardian Info */}
+                    <div className="border-t border-white/10 pt-3">
+                      <p className="text-xs text-white/60 mb-1">Responsável:</p>
+                      <p className="text-sm text-white">{registration.guardian.name}</p>
+                      <p className="text-xs text-white/60">{registration.guardian.phone}</p>
+                    </div>
+                    
+                    {/* Workshop & Details */}
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <p className="text-white/60 mb-1">Oficinas:</p>
+                        <p className="text-white">{registration.workshopIds.length} oficina(s)</p>
+                      </div>
+                      <div>
+                        <p className="text-white/60 mb-1">Convidados:</p>
+                        <p className="text-white">{registration.guestsCount || 0}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Attendance & Date */}
+                    <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={registration.attendance || false}
+                          onChange={(e) => handleAttendanceChange(registration.id, e.target.checked)}
+                          className="w-4 h-4 text-green-600 bg-white/10 border-white/20 rounded focus:ring-green-500"
+                        />
+                        <span className="text-xs text-white">
+                          {registration.attendance ? 'Presente' : 'Ausente'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-white/60">
+                        {new Date(registration.createdAt).toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                    
+                    {/* Actions */}
+                    <div className="flex space-x-2 pt-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1 min-h-[44px]"
+                        onClick={() => handleViewStudent(registration.id)}
+                      >
+                        Ver
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1 min-h-[44px] text-red-400 border-red-400 hover:bg-red-500/20"
+                        onClick={() => handleDeleteStudent(registration.id)}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            {/* Desktop Table - Students */}
+            <Card className="hidden md:block overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-white/5">
@@ -1073,20 +1241,35 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
 
         {/* Guests Tab */}
         {activeTab === 'guests' && (
-          <div className="space-y-8">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-white">Gerenciar Convidados</h2>
-              <div className="flex space-x-3">
-                <Button variant="outline" icon={<Download className="w-4 h-4" />}>
-                  Exportar Convidados
+          <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Gerenciar Convidados</h2>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button variant="outline" icon={<Download className="w-4 h-4" />} className="w-full sm:w-auto min-h-[44px] justify-center">
+                  <span className="hidden sm:inline">Exportar Convidados</span>
+                  <span className="sm:hidden">Exportar</span>
                 </Button>
-                <Button variant="primary" icon={<Plus className="w-4 h-4" />}>
-                  Adicionar Convidado
+                <Button variant="primary" icon={<Plus className="w-4 h-4" />} className="w-full sm:w-auto min-h-[44px] justify-center">
+                  <span className="hidden sm:inline">Adicionar Convidado</span>
+                  <span className="sm:hidden">Adicionar</span>
                 </Button>
               </div>
             </div>
 
-            <Card className="overflow-hidden">
+            {/* Mobile Cards - Guests */}
+            <div className="block md:hidden space-y-3 sm:space-y-4">
+              {/* Placeholder for when there are no guests */}
+              <Card className="p-4 sm:p-6 text-center">
+                <div className="text-white/60">
+                  <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>Nenhum convidado cadastrado ainda.</p>
+                  <p className="text-sm mt-1">Os convidados aparecerão aqui quando forem adicionados.</p>
+                </div>
+              </Card>
+            </div>
+
+            {/* Desktop Table - Guests */}
+            <Card className="hidden md:block overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-white/5">
@@ -1171,37 +1354,37 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
             </Card>
 
             {/* Estatísticas de Convidados - baseadas em dados reais */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+              <Card className="p-4 md:p-6">
                 <div className="flex items-center">
-                  <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mr-4">
-                    <Users className="w-6 h-6 text-blue-400" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mr-3 md:mr-4">
+                    <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">{registrations.reduce((total, reg) => total + (reg.guestsCount || 0), 0)}</p>
-                    <p className="text-white/60 text-sm">Total de Convidados</p>
+                    <p className="text-xl md:text-2xl font-bold text-white">{registrations.reduce((total, reg) => total + (reg.guestsCount || 0), 0)}</p>
+                    <p className="text-white/60 text-xs md:text-sm">Total de Convidados</p>
                   </div>
                 </div>
               </Card>
-              <Card className="p-6">
+              <Card className="p-4 md:p-6">
                 <div className="flex items-center">
-                  <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mr-4">
-                    <Check className="w-6 h-6 text-green-400" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-green-500/20 rounded-lg flex items-center justify-center mr-3 md:mr-4">
+                    <Check className="w-5 h-5 md:w-6 md:h-6 text-green-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">{registrations.filter(reg => reg.attendance).length}</p>
-                    <p className="text-white/60 text-sm">Presentes</p>
+                    <p className="text-xl md:text-2xl font-bold text-white">{registrations.filter(reg => reg.attendance).length}</p>
+                    <p className="text-white/60 text-xs md:text-sm">Presentes</p>
                   </div>
                 </div>
               </Card>
-              <Card className="p-6">
+              <Card className="p-4 md:p-6 sm:col-span-2 lg:col-span-1">
                 <div className="flex items-center">
-                  <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mr-4">
-                    <Star className="w-6 h-6 text-purple-400" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mr-3 md:mr-4">
+                    <Star className="w-5 h-5 md:w-6 md:h-6 text-purple-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">{new Set(registrations.flatMap(reg => reg.workshopIds)).size}</p>
-                    <p className="text-white/60 text-sm">Oficinas Diferentes</p>
+                    <p className="text-xl md:text-2xl font-bold text-white">{new Set(registrations.flatMap(reg => reg.workshopIds)).size}</p>
+                    <p className="text-white/60 text-xs md:text-sm">Oficinas Diferentes</p>
                   </div>
                 </div>
               </Card>
@@ -1214,63 +1397,69 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
           <AutomatedReminders />
         )}
 
+
+
         {/* Users Tab */}
         {activeTab === 'users' && (
-          <div className="space-y-8">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-white">Gerenciar Usuários</h2>
-              <div className="flex space-x-3">
+          <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Gerenciar Usuários</h2>
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Button 
                   variant="outline" 
                   icon={<Download className="w-4 h-4" />}
                   onClick={handleExportUsers}
-                >Exportar Usuários</Button>
+                  className="w-full sm:w-auto min-h-[44px] justify-center"
+                >
+                  <span className="hidden sm:inline">Exportar Usuários</span>
+                  <span className="sm:hidden">Exportar</span>
+                </Button>
               </div>
             </div>
 
             {/* Estatísticas de Usuários */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <Card className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+              <Card className="p-4 md:p-6">
                 <div className="flex items-center">
-                  <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mr-4">
-                    <Users className="w-6 h-6 text-blue-400" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mr-3 md:mr-4">
+                    <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">{users.length}</p>
-                    <p className="text-white/60 text-sm">Total de Usuários</p>
+                    <p className="text-xl md:text-2xl font-bold text-white">{users.length}</p>
+                    <p className="text-white/60 text-xs md:text-sm">Total de Usuários</p>
                   </div>
                 </div>
               </Card>
-              <Card className="p-6">
+              <Card className="p-4 md:p-6">
                 <div className="flex items-center">
-                  <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center mr-4">
-                    <Check className="w-6 h-6 text-green-400" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-green-500/20 rounded-lg flex items-center justify-center mr-3 md:mr-4">
+                    <Check className="w-5 h-5 md:w-6 md:h-6 text-green-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">{users.filter(u => u.email_confirmed).length}</p>
-                    <p className="text-white/60 text-sm">Email Confirmado</p>
+                    <p className="text-xl md:text-2xl font-bold text-white">{users.filter(u => u.email_confirmed).length}</p>
+                    <p className="text-white/60 text-xs md:text-sm">Email Confirmado</p>
                   </div>
                 </div>
               </Card>
-              <Card className="p-6">
+              <Card className="p-4 md:p-6">
                 <div className="flex items-center">
-                  <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mr-4">
-                    <Star className="w-6 h-6 text-purple-400" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-500/20 rounded-lg flex items-center justify-center mr-3 md:mr-4">
+                    <Star className="w-5 h-5 md:w-6 md:h-6 text-purple-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">{users.filter(u => u.user_type === 'admin').length}</p>
-                    <p className="text-white/60 text-sm">Administradores</p>
+                    <p className="text-xl md:text-2xl font-bold text-white">{users.filter(u => u.user_type === 'admin').length}</p>
+                    <p className="text-white/60 text-xs md:text-sm">Administradores</p>
                   </div>
                 </div>
               </Card>
-              <Card className="p-6">
+              <Card className="p-4 md:p-6">
                 <div className="flex items-center">
-                  <div className="w-12 h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center mr-4">
-                    <Users className="w-6 h-6 text-yellow-400" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-yellow-500/20 rounded-lg flex items-center justify-center mr-3 md:mr-4">
+                    <Users className="w-5 h-5 md:w-6 md:h-6 text-yellow-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">{users.filter(u => u.user_type === 'student').length}</p>
-                    <p className="text-white/60 text-sm">Estudantes</p>
+                    <p className="text-xl md:text-2xl font-bold text-white">{users.filter(u => u.user_type === 'student').length}</p>
+                    <p className="text-white/60 text-xs md:text-sm">Estudantes</p>
                   </div>
                 </div>
               </Card>
@@ -1278,7 +1467,7 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
 
             {/* Tabela de Usuários */}
             <Card className="overflow-hidden">
-              <div className="p-6 border-b border-white/10">
+              <div className="p-4 sm:p-6 border-b border-white/10">
                 <h3 className="text-lg font-semibold text-white">Lista de Usuários</h3>
                 <p className="text-white/60 text-sm mt-1">Gerencie todos os usuários cadastrados no sistema</p>
               </div>
@@ -1288,47 +1477,52 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
                   <div className="text-white">Carregando usuários...</div>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-white/5">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
-                          Usuário
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
-                          Email
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
-                          Tipo
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
-                          Data de Criação
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
-                          Ações
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/10">
-                      {users.map((user) => (
-                        <tr key={user.id} className="hover:bg-white/5">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-white">
-                                {user.nome_completo || 'Nome não informado'}
-                              </div>
-                              <div className="text-sm text-white/60">
-                                {user.telefone || 'Telefone não informado'}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-white">{user.email}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                <>
+                  {/* Mobile Cards */}
+                  <div className="block md:hidden space-y-3 sm:space-y-4 p-3 sm:p-4">
+                    {users.map((user) => (
+                      <div key={user.id} className="bg-white/5 rounded-lg p-3 sm:p-4 space-y-3">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h4 className="text-white font-medium text-sm">
+                              {user.nome_completo || 'Nome não informado'}
+                            </h4>
+                            <p className="text-white/60 text-xs mt-1">
+                              {user.telefone || 'Telefone não informado'}
+                            </p>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              icon={<Eye className="w-3 h-3" />}
+                              onClick={() => alert(`Visualizar detalhes do usuário ${user.nome_completo || user.email}`)}
+                              className="min-h-[44px] px-3"
+                            >
+                              Ver
+                            </Button>
+                            {user.user_type !== 'admin' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                icon={<Trash2 className="w-3 h-3" />}
+                                onClick={() => handleDeleteUser(user.id, user.nome_completo || user.email)}
+                                className="text-red-400 border-red-400 hover:bg-red-500/20 min-h-[44px] px-3"
+                              >
+                                Remover
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-white/60 text-xs">Email:</span>
+                            <span className="text-white text-xs">{user.email}</span>
+                          </div>
+                          
+                          <div className="flex justify-between items-center">
+                            <span className="text-white/60 text-xs">Tipo:</span>
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                               user.user_type === 'admin' 
                                 ? 'bg-purple-500/20 text-purple-300'
@@ -1336,12 +1530,14 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
                                 ? 'bg-blue-500/20 text-blue-300'
                                 : 'bg-gray-500/20 text-gray-300'
                             }`}>
-                              {user.user_type === 'admin' ? 'Administrador' :
+                              {user.user_type === 'admin' ? 'Admin' :
                                user.user_type === 'student' ? 'Estudante' : 
                                user.user_type === 'guardian' ? 'Responsável' : user.user_type}
                             </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          </div>
+                          
+                          <div className="flex justify-between items-center">
+                            <span className="text-white/60 text-xs">Status:</span>
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                               user.email_confirmed 
                                 ? 'bg-green-500/20 text-green-300'
@@ -1349,45 +1545,128 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
                             }`}>
                               {user.email_confirmed ? 'Confirmado' : 'Pendente'}
                             </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-white/60">
-                            {new Date(user.created_at).toLocaleDateString('pt-BR')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <div className="flex space-x-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                icon={<Eye className="w-4 h-4" />}
-                                onClick={() => alert(`Visualizar detalhes do usuário ${user.nome_completo || user.email}`)}
-                              >
-                                Ver
-                              </Button>
-                              {user.user_type !== 'admin' && (
+                          </div>
+                          
+                          <div className="flex justify-between items-center">
+                            <span className="text-white/60 text-xs">Criado em:</span>
+                            <span className="text-white/60 text-xs">
+                              {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {users.length === 0 && (
+                      <div className="p-8 text-center">
+                        <Users className="w-12 h-12 text-white/40 mx-auto mb-4" />
+                        <div className="text-white/60">Nenhum usuário encontrado</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Desktop Table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-white/5">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
+                            Usuário
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
+                            Email
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
+                            Tipo
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
+                            Data de Criação
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">
+                            Ações
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/10">
+                        {users.map((user) => (
+                          <tr key={user.id} className="hover:bg-white/5">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div>
+                                <div className="text-sm font-medium text-white">
+                                  {user.nome_completo || 'Nome não informado'}
+                                </div>
+                                <div className="text-sm text-white/60">
+                                  {user.telefone || 'Telefone não informado'}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-white">{user.email}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                user.user_type === 'admin' 
+                                  ? 'bg-purple-500/20 text-purple-300'
+                                  : user.user_type === 'student'
+                                  ? 'bg-blue-500/20 text-blue-300'
+                                  : 'bg-gray-500/20 text-gray-300'
+                              }`}>
+                                {user.user_type === 'admin' ? 'Administrador' :
+                                 user.user_type === 'student' ? 'Estudante' : 
+                                 user.user_type === 'guardian' ? 'Responsável' : user.user_type}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                user.email_confirmed 
+                                  ? 'bg-green-500/20 text-green-300'
+                                  : 'bg-yellow-500/20 text-yellow-300'
+                              }`}>
+                                {user.email_confirmed ? 'Confirmado' : 'Pendente'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-white/60">
+                              {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <div className="flex space-x-2">
                                 <Button 
                                   variant="outline" 
                                   size="sm"
-                                  icon={<Trash2 className="w-4 h-4" />}
-                                  onClick={() => handleDeleteUser(user.id, user.nome_completo || user.email)}
-                                  className="text-red-400 border-red-400 hover:bg-red-500/20"
+                                  icon={<Eye className="w-4 h-4" />}
+                                  onClick={() => alert(`Visualizar detalhes do usuário ${user.nome_completo || user.email}`)}
                                 >
-                                  Remover
+                                  Ver
                                 </Button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  
-                  {users.length === 0 && (
-                    <div className="p-8 text-center">
-                      <Users className="w-12 h-12 text-white/40 mx-auto mb-4" />
-                      <div className="text-white/60">Nenhum usuário encontrado</div>
-                    </div>
-                  )}
-                </div>
+                                {user.user_type !== 'admin' && (
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    icon={<Trash2 className="w-4 h-4" />}
+                                    onClick={() => handleDeleteUser(user.id, user.nome_completo || user.email)}
+                                    className="text-red-400 border-red-400 hover:bg-red-500/20"
+                                  >
+                                    Remover
+                                  </Button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    
+                    {users.length === 0 && (
+                      <div className="p-8 text-center">
+                        <Users className="w-12 h-12 text-white/40 mx-auto mb-4" />
+                        <div className="text-white/60">Nenhum usuário encontrado</div>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </Card>
           </div>
@@ -1395,15 +1674,15 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
 
         {/* Settings Tab */}
         {activeTab === 'settings' && (
-          <div className="space-y-8">
+          <div className="space-y-4 sm:space-y-6 lg:space-y-8">
             <div>
               <h2 className="text-2xl font-bold text-white mb-2">Configurações</h2>
               <p className="text-white/60">Gerencie as configurações do sistema administrativo.</p>
             </div>
 
             {/* Seção de Troca de Senha */}
-            <Card className="p-6">
-              <div className="flex items-center mb-6">
+            <Card className="p-4 sm:p-6">
+              <div className="flex items-center mb-4 sm:mb-6">
                 <div className="w-12 h-12 bg-blue-500/20 rounded-lg flex items-center justify-center mr-4">
                   <Lock className="w-6 h-6 text-blue-400" />
                 </div>
@@ -1454,9 +1733,9 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
             </Card>
 
             {/* Outras Configurações */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* Configurações Gerais */}
-              <Card className="p-6">
+              <Card className="p-4 sm:p-6">
                 <div className="flex items-center mb-4">
                   <Settings className="w-5 h-5 text-purple-400 mr-3" />
                   <h3 className="text-lg font-semibold text-white">Configurações Gerais</h3>
@@ -1484,7 +1763,7 @@ Data de Inscrição: ${new Date(registration.createdAt).toLocaleString('pt-BR')}
               </Card>
 
               {/* Informações do Sistema */}
-              <Card className="p-6">
+              <Card className="p-4 sm:p-6">
                 <div className="flex items-center mb-4">
                   <Eye className="w-5 h-5 text-green-400 mr-3" />
                   <h3 className="text-lg font-semibold text-white">Informações do Sistema</h3>

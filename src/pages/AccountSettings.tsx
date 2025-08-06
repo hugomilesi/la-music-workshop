@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { supabase } from '../lib/supabase';
@@ -115,7 +115,7 @@ const AccountSettings: React.FC = () => {
   };
 
   // Função para buscar inscrições do usuário
-  const fetchUserEnrollments = async () => {
+  const fetchUserEnrollments = useCallback(async () => {
     if (!user) return;
     
     setEnrollmentsLoading(true);
@@ -176,7 +176,7 @@ const AccountSettings: React.FC = () => {
     } finally {
       setEnrollmentsLoading(false);
     }
-  };
+  }, [user]);
 
   // Função para abrir modal de cancelamento
   const openCancelDialog = (enrollmentId: string, workshopName: string, isPaid: boolean) => {
@@ -223,7 +223,7 @@ const AccountSettings: React.FC = () => {
 
   useEffect(() => {
     fetchUserEnrollments();
-  }, [user]);
+  }, [fetchUserEnrollments]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -251,11 +251,53 @@ const AccountSettings: React.FC = () => {
   };
 
   // Função para confirmar mudança de unidade
-  const confirmUnitChange = () => {
-    setFormData(prev => ({
-      ...prev,
-      unit_id: unitChangeDialog.newUnitId
-    }));
+  const confirmUnitChange = async () => {
+    if (!user) return;
+    
+    try {
+      // Primeiro buscar o ID do usuário na tabela users
+      const { data: userRecord, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (userError) {
+        toast.error('Erro ao buscar dados do usuário');
+        return;
+      }
+      
+      // Cancelar todas as inscrições ativas do usuário
+      const { error: cancelError } = await supabase
+        .from('inscricoes')
+        .update({ 
+          status_inscricao: 'cancelada',
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userRecord.id)
+        .eq('status_inscricao', 'ativa');
+      
+      if (cancelError) {
+        toast.error('Erro ao cancelar inscrições: ' + cancelError.message);
+        return;
+      }
+      
+      // Atualizar a unidade no formulário
+      setFormData(prev => ({
+        ...prev,
+        unit_id: unitChangeDialog.newUnitId
+      }));
+      
+      // Fechar o modal
+      setUnitChangeDialog({ isOpen: false, newUnitId: '' });
+      
+      // Recarregar as inscrições
+      await fetchUserEnrollments();
+      
+      toast.success('Unidade alterada e inscrições canceladas com sucesso!');
+    } catch (error) {
+      toast.error('Erro inesperado ao alterar unidade');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -466,7 +508,7 @@ const AccountSettings: React.FC = () => {
                               enrollment.workshops.nome, 
                               isPaid
                             )}
-                            className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors"
+                            className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                             title={isPaid ? 'Contatar suporte para cancelar' : 'Cancelar inscrição'}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -606,7 +648,7 @@ const AccountSettings: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center px-6 py-3 bg-gradient-primary text-white font-medium rounded-lg hover:shadow-glow-purple focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                className="w-full flex items-center justify-center px-6 py-3 bg-gradient-primary text-white font-medium rounded-lg hover:shadow-glow-purple focus:ring-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all min-h-[44px]"
               >
                 {loading ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
