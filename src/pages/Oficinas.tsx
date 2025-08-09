@@ -5,7 +5,7 @@ import Card from '@/components/Card';
 import Button from '@/components/Button';
 import EnrollmentModal from '@/components/EnrollmentModal';
 import { useStore } from '../store/useStore';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/authcontext';
 import { useToast } from '@/contexts/ToastContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +23,7 @@ const getUnitName = (unitId: string): string => {
 
 export default function Oficinas() {
   const { createRegistration } = useStore();
-  const { user, signInAnonymously } = useAuth();
+  const { user } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
   const { showSuccess, showError, showInfo } = useToast();
   const navigate = useNavigate();

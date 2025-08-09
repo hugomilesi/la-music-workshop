@@ -3,9 +3,9 @@ import { Eye, EyeOff, Lock, User, Music, Mail, Phone, Calendar, MapPin } from 'l
 import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/authcontext';
 import { supabase } from '@/lib/supabase';
-import { sendRegistrationConfirmation } from '@/utils/whatsapp';
+// import { sendRegistrationConfirmation } from '@/utils/whatsapp'; // Removido: não enviar mensagem automática para criação de conta
 
 interface Unidade {
   id: string;
@@ -166,20 +166,13 @@ export default function Register() {
 
       if (authError) {
         console.error('❌ Erro no cadastro:', authError);
-        console.error('📋 Detalhes completos do erro:', {
-          message: authError.message,
-          status: authError.status,
-          statusText: authError.statusText,
-          code: authError.code,
-          details: authError.details,
-          hint: authError.hint,
-          fullError: JSON.stringify(authError, null, 2)
-        });
         
         // Tratar erros específicos do Supabase
-        if (authError.message.includes('User already registered') || 
-            authError.message.includes('already registered') ||
-            authError.message.includes('user_already_exists')) {
+        const errorMessage = typeof authError === 'string' ? authError : (authError as any)?.message || 'Erro desconhecido';
+        
+        if (errorMessage.includes('User already registered') || 
+            errorMessage.includes('already registered') ||
+            errorMessage.includes('user_already_exists')) {
           console.log('🔄 Erro: Usuário já registrado');
           setError(`O email "${formData.email}" já está cadastrado no sistema.`);
           
@@ -198,39 +191,21 @@ export default function Register() {
               });
             }
           }, 2000);
-        } else if (authError.message.includes('Invalid email')) {
+        } else if (errorMessage.includes('Invalid email')) {
           console.log('📧 Erro: Email inválido');
           setError('Email inválido. Verifique o formato do email e tente novamente.');
-        } else if (authError.message.includes('Password')) {
+        } else if (errorMessage.includes('Password')) {
           console.log('🔒 Erro: Problema com senha');
           setError('Senha inválida. A senha deve ter pelo menos 6 caracteres.');
         } else {
-          console.log('⚠️ Erro genérico:', authError.message);
-          setError(`Erro ao criar conta: ${authError.message}`);
+          console.log('⚠️ Erro genérico:', errorMessage);
+          setError(`Erro ao criar conta: ${errorMessage}`);
         }
         return;
       }
 
       console.log('🎉 Cadastro realizado com sucesso!');
       setSuccess('Conta criada com sucesso! ✅\n\nVocê já pode fazer login com suas credenciais.');
-      
-      // Enviar mensagem de confirmação via WhatsApp
-      try {
-        console.log('📱 Enviando mensagem de confirmação via WhatsApp...');
-        const whatsappResult = await sendRegistrationConfirmation(
-          formData.telefone,
-          formData.nome_completo
-        );
-        
-        if (whatsappResult.success) {
-          console.log('✅ Mensagem WhatsApp enviada com sucesso!');
-        } else {
-          console.warn('⚠️ Falha ao enviar mensagem WhatsApp:', whatsappResult.error);
-        }
-      } catch (whatsappError) {
-        console.error('❌ Erro ao enviar mensagem WhatsApp:', whatsappError);
-        // Não interromper o fluxo se o WhatsApp falhar
-      }
       
       console.log('⏰ Redirecionando para login em 3 segundos...');
       // Redirecionar após 3 segundos para dar tempo de ler a mensagem

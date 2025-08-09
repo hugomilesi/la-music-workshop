@@ -7,7 +7,7 @@ import Card from '@/components/Card';
 import GlowCard from '@/components/GlowCard';
 import Carousel from '@/components/Carousel';
 import { useStore } from '@/store/useStore';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/authcontext';
 import AuroraEffect from '@/components/AuroraEffect';
 
 export default function Home() {
@@ -31,8 +31,7 @@ export default function Home() {
   useEffect(() => {
     console.log('🏠 Home: workshops atualizados:', {
       total: workshops.length,
-      workshops: workshops.map(w => ({ id: w.id, nome: w.nome, status: w.status, vagas: w.vagas_disponiveis })),
-      featuredCount: featuredWorkshops.length
+      workshops: workshops.map(w => ({ id: w.id, nome: w.nome, status: w.status, vagas: w.vagas_disponiveis }))
     });
   }, [workshops]);
   // Calcular dados dinâmicos das oficinas

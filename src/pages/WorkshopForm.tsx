@@ -35,7 +35,7 @@ interface WorkshopFormData {
 export default function WorkshopForm() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { workshops, createWorkshop, updateWorkshop, fetchInstructors } = useStore();
+  const { workshops, createWorkshop, updateWorkshop } = useStore();
   const { profile } = useUserProfile();
   const isEditing = !!id;
   
@@ -89,7 +89,7 @@ export default function WorkshopForm() {
           // Campos adicionais
           total_vagas: workshop.capacidade || 10,
           gratuito: (workshop.preco || 0) === 0,
-          nome_instrutor: workshop.nome_instrutor || '', // Usar o nome_instrutor do workshop
+          nome_instrutor: workshop.instructor || '', // Usar o instructor do workshop
           idade_minima: workshop.idade_minima || 6,
           idade_maxima: workshop.idade_maxima || 18,
           imagem: workshop.image || '', // Usar imagem existente do workshop

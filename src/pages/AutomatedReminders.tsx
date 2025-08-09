@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
+import { useAutomatedReminders } from '../hooks/useAutomatedReminders';
 import Card from '../components/Card';
 import Button from '../components/Button';
 
@@ -39,6 +40,14 @@ const AutomatedReminders: React.FC = () => {
     processAutomatedReminders
   } = useStore();
 
+  const {
+    processAllReminders,
+    processReminders2Days,
+    processReminders8Hours,
+    startAutomatedProcessing,
+    stopAutomatedProcessing
+  } = useAutomatedReminders();
+
   const [showForm, setShowForm] = useState(false);
   const [editingReminder, setEditingReminder] = useState<any | null>(null);
   const [selectedWorkshop, setSelectedWorkshop] = useState<string>('');
@@ -47,6 +56,7 @@ const AutomatedReminders: React.FC = () => {
   const [showTestMessage, setShowTestMessage] = useState(false);
   const [showCustomReminder, setShowCustomReminder] = useState(false);
   const [sendingTestMessage, setSendingTestMessage] = useState(false);
+  const [autoProcessingActive, setAutoProcessingActive] = useState(false);
 
   const [formData, setFormData] = useState<ReminderForm>({
     workshop_id: '',
@@ -74,6 +84,44 @@ const AutomatedReminders: React.FC = () => {
     fetchAutomatedReminders();
     fetchMessages();
   }, []);
+
+  // Função para criar lembretes de exemplo
+  const createExampleReminders = async () => {
+    if (workshops.length === 0) {
+      alert('Nenhum workshop encontrado. Crie um workshop primeiro.');
+      return;
+    }
+
+    const firstWorkshop = workshops[0];
+    
+    try {
+      // Lembrete 2 dias antes
+      await createReminder({
+        workshop_id: firstWorkshop.id,
+        tipo_lembrete: 'lembrete_evento',
+        periodo_disparo: 48, // 2 dias = 48 horas
+        titulo: 'Lembrete: Evento em 2 dias!',
+        mensagem: `Olá! Seu evento "${firstWorkshop.titulo}" acontecerá em 2 dias. Não esqueça de se preparar!`,
+        ativo: true
+      });
+
+      // Lembrete 8 horas antes
+      await createReminder({
+        workshop_id: firstWorkshop.id,
+        tipo_lembrete: 'lembrete_evento',
+        periodo_disparo: 8, // 8 horas
+        titulo: 'Lembrete: Evento hoje!',
+        mensagem: `Olá! Seu evento "${firstWorkshop.titulo}" acontecerá em algumas horas. Prepare-se!`,
+        ativo: true
+      });
+
+      alert('Lembretes de exemplo criados com sucesso!');
+      fetchAutomatedReminders();
+    } catch (error) {
+      console.error('Erro ao criar lembretes de exemplo:', error);
+      alert('Erro ao criar lembretes de exemplo');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,6 +358,46 @@ const AutomatedReminders: React.FC = () => {
             className="bg-green-600 hover:bg-green-700 min-h-[44px] w-full sm:w-auto"
           >
             {processingReminders ? 'Processando...' : 'Testar Lembretes'}
+          </Button>
+          
+          <Button
+            onClick={() => processReminders2Days()}
+            className="bg-blue-600 hover:bg-blue-700 min-h-[44px] w-full sm:w-auto"
+          >
+            Testar 2 Dias
+          </Button>
+          
+          <Button
+            onClick={() => processReminders8Hours()}
+            className="bg-indigo-600 hover:bg-indigo-700 min-h-[44px] w-full sm:w-auto"
+          >
+            Testar 8 Horas
+          </Button>
+          
+          <Button
+            onClick={() => {
+              if (autoProcessingActive) {
+                stopAutomatedProcessing();
+                setAutoProcessingActive(false);
+              } else {
+                startAutomatedProcessing();
+                setAutoProcessingActive(true);
+              }
+            }}
+            className={`min-h-[44px] w-full sm:w-auto ${
+              autoProcessingActive 
+                ? 'bg-red-600 hover:bg-red-700' 
+                : 'bg-emerald-600 hover:bg-emerald-700'
+            }`}
+          >
+            {autoProcessingActive ? 'Parar Auto-Processamento' : 'Iniciar Auto-Processamento'}
+          </Button>
+          
+          <Button
+            onClick={createExampleReminders}
+            className="bg-yellow-600 hover:bg-yellow-700 min-h-[44px] w-full sm:w-auto"
+          >
+            Criar Lembretes Exemplo
           </Button>
           
           <select

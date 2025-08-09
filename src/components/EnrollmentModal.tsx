@@ -3,7 +3,7 @@ import { X, ArrowRight, Check, Users, Calendar, MapPin, Clock } from 'lucide-rea
 import Card from '@/components/Card';
 import Button from '@/components/Button';
 import { useStore } from '@/store/useStore';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/authcontext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useToast } from '@/contexts/ToastContext';
 import { supabase } from '@/lib/supabase';

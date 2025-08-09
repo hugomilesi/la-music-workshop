@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider } from '@/contexts/authcontext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import DataPreloader from '@/components/DataPreloader';
+import ReminderService from '@/components/ReminderService';
 import Home from '@/pages/Home';
 import Oficinas from '@/pages/Oficinas';
 import Login from '@/pages/Login';
@@ -22,6 +23,7 @@ function App() {
     <AuthProvider>
       <ToastProvider>
         <DataPreloader />
+        <ReminderService />
         <Router>
         <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
           <Routes>

@@ -59,8 +59,18 @@ const WorkshopManagement: React.FC = () => {
   });
 
   useEffect(() => {
+    console.log('🔄 WorkshopManagement: useEffect executado, chamando fetchWorkshops');
     fetchWorkshops();
   }, []); // Removendo fetchWorkshops das dependências para evitar loop infinito
+
+  // Debug logs
+  useEffect(() => {
+    console.log('📊 WorkshopManagement: Estado atual:', {
+      workshopsCount: workshops.length,
+      loading: loading.workshops,
+      workshops: workshops
+    });
+  }, [workshops, loading.workshops]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

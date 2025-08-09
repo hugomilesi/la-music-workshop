@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 /**
  * Componente para pré-carregar dados críticos da aplicação
  * Executa em background para melhorar a performance
@@ -24,14 +26,12 @@ export function useConditionalPreload(condition: boolean, preloadFn: () => Promi
  * Hook para pré-carregar dados com base na navegação
  */
 export function useRoutePreload() {
-  const { preloadAll } = usePreloadAllWorkshops();
-
   const preloadForRoute = async (route: string) => {
     switch (route) {
       case '/oficinas':
       case '/home':
         // Pré-carregar workshops para páginas que os utilizam
-        await preloadAll();
+        console.log('Preloading data for route:', route);
         break;
       default:
         break;

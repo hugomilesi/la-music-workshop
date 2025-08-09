@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '@/components/Card';
 
 import Button from '@/components/Button';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/authcontext';
 import { useToast } from '@/contexts/ToastContext';
 import { useStore } from '@/store/useStore';
 import { supabase } from '@/lib/supabase';
@@ -110,12 +110,14 @@ export default function Login() {
     
       if (error) {
         console.error('❌ Login: Erro no signIn:', error);
-        if (error.message?.includes('Invalid login credentials')) {
+        const errorMessage = typeof error === 'string' ? error : (error as any)?.message || 'Erro ao fazer login';
+        
+        if (errorMessage.includes('Invalid login credentials')) {
           setError('Email ou senha incorretos. Verifique suas credenciais e tente novamente.');
-          showError('Credenciais Inválidas', 'Email ou senha incorretos.');
+          showError('Credenciais Inválidas', 'Email ou senha incorretos');
         } else {
-          setError(error.message || 'Erro ao fazer login');
-          showError('Erro no Login', error.message || 'Erro ao fazer login');
+          setError(errorMessage);
+          showError('Erro no Login', errorMessage);
         }
         setIsLoading(false);
       } else {
@@ -140,7 +142,8 @@ export default function Login() {
       const { error } = await resetPassword(resetEmail);
 
       if (error) {
-        setError('Erro ao enviar email de recuperação: ' + error.message);
+        const errorMessage = typeof error === 'string' ? error : (error as any)?.message || 'Erro desconhecido';
+        setError('Erro ao enviar email de recuperação: ' + errorMessage);
       } else {
         setResetSuccess('Email de recuperação enviado! Verifique sua caixa de entrada.');
         setTimeout(() => {

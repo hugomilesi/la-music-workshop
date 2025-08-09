@@ -166,6 +166,7 @@ interface StoreState {
   fetchWorkshops: (unitId?: string) => Promise<void>;
   fetchRegistrations: () => Promise<void>;
   fetchAutomatedReminders: (workshopId?: string) => Promise<void>;
+  fetchRemindersByPeriod: (period: string) => Promise<any[]>;
   fetchMessages: () => Promise<void>;
   fetchUsers: () => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
@@ -781,7 +782,21 @@ export const useStore = create<StoreState>((set, get) => ({
       throw error;
     }
   },
-  
+
+  fetchRemindersByPeriod: async (period: string) => {
+    try {
+      const { data, error } = await supabase
+        .rpc('obter_lembretes_periodo', { p_periodo: period });
+      
+      if (error) throw error;
+      
+      return data || [];
+    } catch (error) {
+      console.error('Erro ao buscar lembretes por período:', error);
+      throw error;
+    }
+  },
+
   processAutomatedReminders: async () => {
     try {
       const { data, error } = await supabase
@@ -1276,8 +1291,7 @@ export const useStore = create<StoreState>((set, get) => ({
       set((state) => ({ loading: { ...state.loading, users: true } }));
       
       console.log('🔍 fetchUsers: Fazendo consulta com supabaseAdmin...');
-      console.log('🔍 fetchUsers: URL do Supabase:', supabaseAdmin.supabaseUrl);
-      console.log('🔍 fetchUsers: Chave sendo usada:', supabaseAdmin.supabaseKey?.substring(0, 20) + '...');
+      console.log('🔍 fetchUsers: Iniciando busca de usuários...');
       
       const { data, error } = await supabaseAdmin
         .from('users')
