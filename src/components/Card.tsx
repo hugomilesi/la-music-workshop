@@ -1,4 +1,4 @@
-import { ReactNode, HTMLAttributes } from 'react';
+import { ReactNode, HTMLAttributes, memo } from 'react';
 import { clsx } from 'clsx';
 
 interface CardProps extends HTMLAttributes<HTMLDivElement> {
@@ -8,7 +8,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
   padding?: 'none' | 'sm' | 'md' | 'lg';
 }
 
-export default function Card({
+const Card = memo(function Card({
   children,
   className,
   variant = 'glass',
@@ -47,4 +47,6 @@ export default function Card({
       {children}
     </div>
   );
-}
+});
+
+export default Card;

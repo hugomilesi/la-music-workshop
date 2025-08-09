@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 stay_local/
+
+# Environment variables
+.env
+.env.local
+.env.production

@@ -22,7 +22,7 @@ interface WorkshopFormData {
   // Campos adicionais para o formulário
   total_vagas: number;
   gratuito: boolean;
-  professor: string;
+  nome_instrutor: string;
   idade_minima: number;
   idade_maxima: number;
   imagem: string;
@@ -30,12 +30,16 @@ interface WorkshopFormData {
   permite_convidados: boolean;
 }
 
+// Interface removida pois não precisamos mais de instrutores cadastrados
+
 export default function WorkshopForm() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { workshops, createWorkshop, updateWorkshop } = useStore();
+  const { workshops, createWorkshop, updateWorkshop, fetchInstructors } = useStore();
   const { profile } = useUserProfile();
   const isEditing = !!id;
+  
+  // Removido estado de instrutores
   
   const [formData, setFormData] = useState<WorkshopFormData>({
     nome: '',
@@ -52,7 +56,7 @@ export default function WorkshopForm() {
     // Campos adicionais
     total_vagas: 10,
     gratuito: false,
-    professor: '',
+    nome_instrutor: '',
     idade_minima: 6,
     idade_maxima: 18,
     imagem: '',
@@ -63,6 +67,8 @@ export default function WorkshopForm() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [successMessage, setSuccessMessage] = useState({ show: false, text: '' });
+  
+  // Removido carregamento de instrutores
 
   useEffect(() => {
     if (isEditing && id) {
@@ -83,10 +89,10 @@ export default function WorkshopForm() {
           // Campos adicionais
           total_vagas: workshop.capacidade || 10,
           gratuito: (workshop.preco || 0) === 0,
-          professor: workshop.instrumento || '', // Temporariamente usando instrumento como professor
+          nome_instrutor: workshop.nome_instrutor || '', // Usar o nome_instrutor do workshop
           idade_minima: workshop.idade_minima || 6,
           idade_maxima: workshop.idade_maxima || 18,
-          imagem: '', // Valor padrão
+          imagem: workshop.image || '', // Usar imagem existente do workshop
           unidade: workshop.unit_id || '', // Usar o unit_id do workshop
           permite_convidados: workshop.permite_convidados || false
         });
@@ -109,7 +115,7 @@ export default function WorkshopForm() {
     if (formData.total_vagas <= 0) newErrors.total_vagas = 'Total de vagas deve ser maior que zero';
     if (!formData.gratuito && formData.preco < 0) newErrors.preco = 'Preço não pode ser negativo';
     if (!formData.local.trim()) newErrors.local = 'Local é obrigatório';
-    if (!formData.professor.trim()) newErrors.professor = 'Professor é obrigatório';
+    if (!formData.nome_instrutor.trim()) newErrors.nome_instrutor = 'Nome do instrutor é obrigatório';
     if (formData.idade_minima < 0) newErrors.idade_minima = 'Idade mínima não pode ser negativa';
     if (formData.idade_maxima < formData.idade_minima) newErrors.idade_maxima = 'Idade máxima deve ser maior que a mínima';
     if (!formData.unidade.trim()) newErrors.unidade = 'Unidade é obrigatória';
@@ -142,11 +148,14 @@ export default function WorkshopForm() {
         throw new Error('Por favor, selecione uma unidade');
       }
       
+      // Usar o nome do instrutor diretamente do formulário
+      const instructorName = formData.nome_instrutor || 'Instrutor não informado';
+      
       const workshopData = {
         // Campos obrigatórios do Workshop
         title: formData.nome,
         description: formData.descricao,
-        instructor: formData.professor || 'Instrutor',
+        instructor: instructorName,
         duration: '2 horas',
         level: formData.nivel || 'iniciante' as const,
         category: formData.instrumento || 'Geral',
@@ -154,7 +163,7 @@ export default function WorkshopForm() {
         currentParticipants: 0,
         price: formData.gratuito ? 0 : formData.preco,
         rating: 4.5,
-        image: '',
+        image: formData.imagem || '',
         schedule: [new Date(formData.data_inicio).toLocaleString('pt-BR')],
         unidade: 'Unidade Principal',
         // Campos do banco de dados
@@ -170,9 +179,11 @@ export default function WorkshopForm() {
         vagas_disponiveis: isEditing ? (workshops.find(w => w.id === id)?.vagas_disponiveis || formData.total_vagas) : formData.total_vagas,
         status: formData.status as 'ativa' | 'cancelada' | 'finalizada',
         unit_id: formData.unidade,
+        nome_instrutor: formData.nome_instrutor,
         idade_minima: formData.idade_minima,
         idade_maxima: formData.idade_maxima,
-        permite_convidados: formData.permite_convidados
+        permite_convidados: formData.permite_convidados,
+        imagem: formData.imagem || ''
       };
       
       if (isEditing && id) {
@@ -235,7 +246,7 @@ export default function WorkshopForm() {
         <div className="max-w-4xl mx-auto">
           <Card className="p-8">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Nome e Professor */}
+              {/* Nome e Instrutor */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
@@ -255,18 +266,18 @@ export default function WorkshopForm() {
                 
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
-                    Professor *
+                    Nome do Instrutor *
                   </label>
                   <input
                     type="text"
-                    value={formData.professor}
-                    onChange={(e) => handleInputChange('professor', e.target.value)}
+                    value={formData.nome_instrutor}
+                    onChange={(e) => handleInputChange('nome_instrutor', e.target.value)}
                     className={`w-full px-4 py-3 bg-white/10 border rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      errors.professor ? 'border-red-500' : 'border-white/20'
+                      errors.nome_instrutor ? 'border-red-500' : 'border-white/20'
                     }`}
                     placeholder="Ex: João Silva"
                   />
-                  {errors.professor && <p className="text-red-400 text-sm mt-1">{errors.professor}</p>}
+                  {errors.nome_instrutor && <p className="text-red-400 text-sm mt-1">{errors.nome_instrutor}</p>}
                 </div>
               </div>
 
@@ -292,31 +303,75 @@ export default function WorkshopForm() {
                 <label className="block text-sm font-medium text-white mb-2">
                   Imagem da Oficina
                 </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        handleInputChange('imagem', event.target?.result as string);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-600 file:text-white hover:file:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {formData.imagem && (
-                  <div className="mt-2">
-                    <img
-                      src={formData.imagem}
-                      alt="Preview"
-                      className="w-32 h-32 object-cover rounded-lg"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
+                
+                {/* Opções de upload */}
+                <div className="space-y-4">
+                  {/* Upload de arquivo */}
+                  <div>
+                    <label className="block text-sm text-white/80 mb-2">
+                      Carregar arquivo de imagem:
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            handleInputChange('imagem', event.target?.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
                       }}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-600 file:text-white hover:file:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                  </div>
+                  
+                  {/* Divisor */}
+                  <div className="flex items-center">
+                    <div className="flex-1 border-t border-white/20"></div>
+                    <span className="px-3 text-white/60 text-sm">ou</span>
+                    <div className="flex-1 border-t border-white/20"></div>
+                  </div>
+                  
+                  {/* URL da imagem */}
+                  <div>
+                    <label className="block text-sm text-white/80 mb-2">
+                      URL da imagem:
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.imagem.startsWith('data:') ? '' : formData.imagem}
+                      onChange={(e) => handleInputChange('imagem', e.target.value)}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="https://exemplo.com/imagem.jpg"
+                    />
+                  </div>
+                </div>
+                
+                {/* Preview da imagem */}
+                {formData.imagem && (
+                  <div className="mt-4">
+                    <p className="text-sm text-white/80 mb-2">Preview:</p>
+                    <div className="relative inline-block">
+                      <img
+                        src={formData.imagem}
+                        alt="Preview"
+                        className="w-32 h-32 object-cover rounded-lg border border-white/20"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleInputChange('imagem', '')}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
+                        title="Remover imagem"
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -476,22 +531,7 @@ export default function WorkshopForm() {
                 </div>
               </div>
 
-              {/* Upload de Imagem */}
-              <div>
-                <label className="block text-sm font-medium text-white mb-2">
-                  Imagem da Oficina
-                </label>
-                <input
-                  type="url"
-                  value={formData.imagem}
-                  onChange={(e) => handleInputChange('imagem', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="https://exemplo.com/imagem.jpg"
-                />
-                <p className="text-white/60 text-xs mt-2">
-                  Cole o URL de uma imagem para a oficina (opcional)
-                </p>
-              </div>
+
 
               {/* Preço e Configurações */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

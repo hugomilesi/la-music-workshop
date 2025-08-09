@@ -27,39 +27,79 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Proteção de rota: redirecionar usuários já autenticados imediatamente
+  // Redirecionar usuário já logado - verificação simples
   useEffect(() => {
-    if (user && !loading) {
-      console.log('🔄 Login: Usuário já autenticado, redirecionando...');
-      
-      const selectedWorkshopId = localStorage.getItem('selectedWorkshopId');
-      
-      if (isAdmin || userProfile?.user_type === 'admin') {
-        navigate('/admin/dashboard', { replace: true });
-      } else if (selectedWorkshopId) {
-        navigate('/inscricao', { replace: true });
-      } else {
-        navigate('/', { replace: true });
-      }
-      return;
+    if (user) {
+      console.log('👤 Login: Usuario ja logado, redirecionando para home...');
+      navigate('/', { replace: true });
     }
-  }, [user, loading, isAdmin, userProfile, navigate]);
+  }, [user, navigate]);
+
+  // Se usuário já está logado, não renderizar a página de login
+  if (user) {
+    return null;
+  }
 
   useEffect(() => {
     // Verificar se há selectedWorkshopId no localStorage
     const selectedWorkshopId = localStorage.getItem('selectedWorkshopId');
-    if (selectedWorkshopId) {
+    if (selectedWorkshopId && !user) {
       showInfo(
         'Inscrição Pendente',
         'Para se inscrever no workshop, você precisa fazer login primeiro.'
       );
     }
-  }, [navigate]);
+  }, [navigate, user, showInfo]);
+
+  // Processar dados vindos do Register
+  useEffect(() => {
+    if (location.state) {
+      const { email: stateEmail, message, type } = location.state;
+      
+      if (stateEmail) {
+        setEmail(stateEmail);
+        console.log('📧 Login: Email pré-preenchido:', stateEmail);
+      }
+      
+      if (message) {
+        if (type === 'info') {
+          showInfo('Informação', message);
+        } else if (type === 'error') {
+          showError('Erro', message);
+        } else {
+          showSuccess('Sucesso', message);
+        }
+      }
+      
+      // Limpar o state para evitar mostrar a mensagem novamente
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, showInfo, showError, showSuccess]);
 
   // useEffect removido - lógica de redirecionamento movida para o useEffect acima
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Verificar se o usuário já está logado
+    if (user && userProfile !== undefined) {
+      console.log('⚠️ Login: Usuário já logado, ignorando tentativa de login');
+      return;
+    }
+    
+    // Verificar se está em processo de carregamento
+    if (loading) {
+      console.log('⚠️ Login: Sistema ainda carregando, aguarde...');
+      setIsLoading(false);
+      return;
+    }
+    
+    // Verificar se já está processando um login
+    if (isLoading) {
+      console.log('⚠️ Login: Já processando login, aguarde...');
+      return;
+    }
+    
     setIsLoading(true);
     setError('');
     
@@ -79,18 +119,8 @@ export default function Login() {
         }
         setIsLoading(false);
       } else {
-        console.log('✅ Login: signIn bem-sucedido, aguardando redirecionamento...');
-        // Login bem-sucedido - o redirecionamento será feito pelo useEffect
-        // Não definir isLoading como false aqui, deixar o useEffect gerenciar
-        showSuccess('Login Realizado', 'Bem-vindo de volta!');
-        
-        // Aguardar um pouco para o AuthContext processar
-        setTimeout(() => {
-          if (isLoading) {
-            console.log('⏰ Login: Timeout - definindo isLoading como false');
-            setIsLoading(false);
-          }
-        }, 3000);
+        console.log('✅ Login: signIn bem-sucedido');
+        // O redirecionamento será feito automaticamente pelo ProtectedRoute
       }
     } catch (err) {
       console.error('❌ Login: Erro inesperado:', err);
@@ -144,9 +174,9 @@ export default function Login() {
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center mb-4">
               <img 
-                src="/assets/la-music-week-logo.svg" 
+                src="/assets/Logo Kids e LA.png" 
                 alt="LA Music Week" 
-                className="w-24 h-24 object-contain drop-shadow-2xl"
+                className="w-32 h-16 object-contain drop-shadow-2xl"
               />
             </div>
             <h1 className="text-3xl font-bold text-white mb-2 font-inter glow">
@@ -171,7 +201,7 @@ export default function Login() {
                     type="email"
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                    className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                     placeholder="seu@email.com"
                     required
                   />
@@ -230,9 +260,9 @@ export default function Login() {
         <div className="text-center mb-6 md:mb-8">
           <div className="inline-flex items-center justify-center mb-3 md:mb-4">
             <img 
-              src="/assets/lamusic.png" 
+              src="/assets/Logo Kids e LA.png" 
               alt="LA Music Week" 
-              className="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-2xl"
+              className="w-24 h-12 md:w-32 md:h-16 object-contain drop-shadow-2xl"
             />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-white mb-2 font-inter glow">
@@ -257,7 +287,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
+                  className="w-full pl-12 pr-4 py-3 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="seu@email.com"
                   required
                 />
@@ -275,7 +305,7 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-12 py-3 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
+                  className="w-full pl-12 pr-12 py-3 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="••••••••"
                   required
                 />

@@ -111,7 +111,7 @@ const AutomatedReminders: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': '61E65C47B0D4-44D1-919D-C6137E824D77'
+          'apikey': import.meta.env.VITE_EVOLUTION_API_KEY
         },
         body: JSON.stringify({
           number: testMessageData.numero,
@@ -229,10 +229,10 @@ const AutomatedReminders: React.FC = () => {
   const handleTestReminders = async () => {
     setProcessingReminders(true);
     try {
-      // TODO: Implementar processAutomatedReminders no store
-      // const result = await processAutomatedReminders();
-      alert('Funcionalidade de processamento de lembretes será implementada em breve!');
+      await processAutomatedReminders();
+      alert('Lembretes processados com sucesso!');
     } catch (error) {
+      console.error('Erro ao processar lembretes:', error);
       alert('Erro ao processar lembretes');
     } finally {
       setProcessingReminders(false);

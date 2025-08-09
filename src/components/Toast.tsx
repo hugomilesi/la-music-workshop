@@ -55,43 +55,48 @@ const Toast = ({ id, type, title, message, duration = 5000, onClose }: ToastProp
     switch (type) {
       case 'success':
         return {
-          bg: 'bg-green-900/90',
-          border: 'border-green-500/50',
-          icon: 'text-green-400',
-          title: 'text-green-100',
-          message: 'text-green-200'
+          bg: 'bg-gradient-to-br from-green-800/95 via-green-900/95 to-emerald-900/95',
+          border: 'border-green-400/60',
+          icon: 'text-green-300',
+          title: 'text-white font-bold drop-shadow-lg',
+          message: 'text-green-50 font-medium',
+          glow: 'shadow-lg shadow-green-500/25'
         };
       case 'error':
         return {
-          bg: 'bg-red-900/90',
-          border: 'border-red-500/50',
-          icon: 'text-red-400',
-          title: 'text-red-100',
-          message: 'text-red-200'
+          bg: 'bg-gradient-to-br from-red-800/95 via-red-900/95 to-rose-900/95',
+          border: 'border-red-400/60',
+          icon: 'text-red-300',
+          title: 'text-white font-bold drop-shadow-lg',
+          message: 'text-red-50 font-medium',
+          glow: 'shadow-lg shadow-red-500/25'
         };
       case 'warning':
         return {
-          bg: 'bg-yellow-900/90',
-          border: 'border-yellow-500/50',
-          icon: 'text-yellow-400',
-          title: 'text-yellow-100',
-          message: 'text-yellow-200'
+          bg: 'bg-gradient-to-br from-amber-800/95 via-yellow-900/95 to-orange-900/95',
+          border: 'border-amber-400/60',
+          icon: 'text-amber-300',
+          title: 'text-white font-bold drop-shadow-lg',
+          message: 'text-amber-50 font-medium',
+          glow: 'shadow-lg shadow-amber-500/25'
         };
       case 'info':
         return {
-          bg: 'bg-blue-900/90',
-          border: 'border-blue-500/50',
-          icon: 'text-blue-400',
-          title: 'text-blue-100',
-          message: 'text-blue-200'
+          bg: 'bg-gradient-to-br from-blue-800/95 via-blue-900/95 to-indigo-900/95',
+          border: 'border-blue-400/60',
+          icon: 'text-blue-300',
+          title: 'text-white font-bold drop-shadow-lg',
+          message: 'text-blue-50 font-medium',
+          glow: 'shadow-lg shadow-blue-500/25'
         };
       default:
         return {
-          bg: 'bg-gray-900/90',
-          border: 'border-gray-500/50',
-          icon: 'text-gray-400',
-          title: 'text-gray-100',
-          message: 'text-gray-200'
+          bg: 'bg-gradient-to-br from-slate-800/95 via-gray-900/95 to-slate-900/95',
+          border: 'border-slate-400/60',
+          icon: 'text-slate-300',
+          title: 'text-white font-bold drop-shadow-lg',
+          message: 'text-slate-50 font-medium',
+          glow: 'shadow-lg shadow-slate-500/25'
         };
     }
   };
@@ -108,20 +113,25 @@ const Toast = ({ id, type, title, message, duration = 5000, onClose }: ToastProp
     >
       <div
         className={`
-          ${styles.bg} ${styles.border} border backdrop-blur-md
-          rounded-lg shadow-2xl p-4 flex items-start space-x-3
+          ${styles.bg} ${styles.border} ${styles.glow}
+          border-2 backdrop-blur-xl rounded-2xl p-5 flex items-start space-x-4
+          transform hover:scale-[1.02] transition-all duration-300
+          shadow-2xl relative overflow-hidden
         `}
       >
-        <div className={`flex-shrink-0 ${styles.icon}`}>
+        {/* Glassmorphism overlay */}
+        <div className="absolute inset-0 bg-white/5 backdrop-blur-sm rounded-2xl" />
+        
+        <div className={`flex-shrink-0 ${styles.icon} relative z-10 p-2 rounded-xl bg-white/10`}>
           {getIcon()}
         </div>
         
-        <div className="flex-1 min-w-0">
-          <h4 className={`font-semibold ${styles.title} text-sm`}>
+        <div className="flex-1 min-w-0 relative z-10">
+          <h4 className={`${styles.title} text-base tracking-wide`}>
             {title}
           </h4>
           {message && (
-            <p className={`mt-1 text-sm ${styles.message} leading-relaxed`}>
+            <p className={`mt-2 text-sm ${styles.message} leading-relaxed opacity-95`}>
               {message}
             </p>
           )}
@@ -129,7 +139,8 @@ const Toast = ({ id, type, title, message, duration = 5000, onClose }: ToastProp
         
         <button
           onClick={handleClose}
-          className="flex-shrink-0 text-white/60 hover:text-white transition-colors"
+          className="flex-shrink-0 relative z-10 p-2 rounded-xl bg-white/10 text-white/80 hover:text-white hover:bg-white/20 transition-all duration-300 hover:scale-110"
+          aria-label="Fechar notificação"
         >
           <X className="w-4 h-4" />
         </button>

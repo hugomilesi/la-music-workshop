@@ -18,11 +18,16 @@ export function useAdminValidation() {
     }
 
     // Evitar múltiplas validações simultâneas
-    if (validatingRef.current || lastUserIdRef.current === user.id) {
+    if (validatingRef.current) {
+      return isValidAdmin;
+    }
+    
+    // Se já validamos este usuário e temos resultado, retornar
+    if (lastUserIdRef.current === user.id && (isValidAdmin || validationError)) {
       return isValidAdmin;
     }
 
-    // Se já temos o perfil do usuário no contexto, usar ele
+    // OTIMIZAÇÃO: Usar sempre o contexto de autenticação quando disponível
     if (userProfile) {
       const isAdmin = userProfile.user_type === 'admin';
       setIsValidAdmin(isAdmin);
@@ -31,12 +36,15 @@ export function useAdminValidation() {
       return isAdmin;
     }
 
+    // OTIMIZAÇÃO: Usar isAdmin do contexto se disponível (evita consulta desnecessária)
+    // Removido para evitar referência a variável não definida
+
     validatingRef.current = true;
     setIsValidating(true);
     setValidationError(null);
 
     try {
-      // Verificar diretamente na tabela users se o usuário é admin
+      // Consulta otimizada - apenas user_type necessário
       const { data: userData, error } = await supabase
         .from('users')
         .select('user_type')
@@ -49,11 +57,11 @@ export function useAdminValidation() {
         return false;
       }
 
-      const isAdmin = userData?.user_type === 'admin';
-      setIsValidAdmin(isAdmin);
-      setValidationError(isAdmin ? null : 'Usuário não é administrador');
+      const isAdminResult = userData?.user_type === 'admin';
+      setIsValidAdmin(isAdminResult);
+      setValidationError(isAdminResult ? null : 'Usuário não é administrador');
       lastUserIdRef.current = user.id;
-      return isAdmin;
+      return isAdminResult;
     } catch (error: any) {
       setIsValidAdmin(false);
       setValidationError('Erro inesperado na validação');
@@ -73,7 +81,7 @@ export function useAdminValidation() {
       setValidationError(null);
       lastUserIdRef.current = null;
     }
-  }, [user?.id, userProfile]);
+  }, [user?.id]); // Removido userProfile das dependências para evitar loops
 
   return {
     isValidating,

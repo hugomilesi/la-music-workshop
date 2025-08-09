@@ -1,36 +1,38 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import DataPreloader from '@/components/DataPreloader';
 import Home from '@/pages/Home';
 import Oficinas from '@/pages/Oficinas';
-import Inscricao from '@/pages/Inscricao';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ResetPassword from '@/pages/ResetPassword';
 
-import AuthCallback from '@/pages/AuthCallback';
+// AuthCallback removido - não precisamos mais de confirmação de email
 
 import AdminDashboard from '@/pages/admindashboard';
 import WorkshopForm from '@/pages/WorkshopForm';
 import AccountSettings from '@/pages/AccountSettings';
 import AdminRoute from '@/components/AdminRoute';
+import ProtectedRoute from '@/components/ProtectedRoute';
+
 
 function App() {
   return (
     <AuthProvider>
       <ToastProvider>
+        <DataPreloader />
         <Router>
         <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/oficinas" element={<Oficinas />} />
-            <Route path="/inscricao" element={<Inscricao />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/login" element={<ProtectedRoute requireAuth={false}><Login /></ProtectedRoute>} />
+            <Route path="/register" element={<ProtectedRoute requireAuth={false}><Register /></ProtectedRoute>} />
+            <Route path="/reset-password" element={<ProtectedRoute requireAuth={false}><ResetPassword /></ProtectedRoute>} />
     
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/account-settings" element={<AccountSettings />} />
+            {/* AuthCallback removido - não precisamos mais de confirmação de email */}
+            <Route path="/account-settings" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
             <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
             <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -39,6 +41,7 @@ function App() {
             <Route path="/admin/workshop/edit/:id" element={<AdminRoute><WorkshopForm /></AdminRoute>} />
           </Routes>
         </div>
+
         </Router>
       </ToastProvider>
     </AuthProvider>

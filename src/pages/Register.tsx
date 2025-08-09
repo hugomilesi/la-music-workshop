@@ -122,6 +122,34 @@ export default function Register() {
 
     try {
       console.log('✅ Prosseguindo com o cadastro...');
+      
+      // Primeiro, verificar se o usuário já existe no sistema
+      console.log('🔍 Verificando se email já existe...');
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', formData.email)
+        .single();
+        
+      if (existingUser && !checkError) {
+        console.log('✅ Email encontrado na tabela users');
+        setError('Este email já está cadastrado no sistema.');
+        
+        setTimeout(() => {
+          const goToLogin = window.confirm(
+            'Este email já está cadastrado. Deseja ir para a página de login?'
+          );
+          if (goToLogin) {
+            navigate('/login', { 
+              state: { 
+                email: formData.email,
+                message: 'Email já cadastrado. Faça login com suas credenciais.' 
+              }
+            });
+          }
+        }, 2000);
+        return;
+      }
 
       // Criar usuário no Supabase Auth (que já cria o perfil na tabela users)
       console.log('📧 Chamando função signUp...');
@@ -138,16 +166,38 @@ export default function Register() {
 
       if (authError) {
         console.error('❌ Erro no cadastro:', authError);
-        console.error('📋 Detalhes do erro:', {
+        console.error('📋 Detalhes completos do erro:', {
           message: authError.message,
           status: authError.status,
-          statusText: authError.statusText
+          statusText: authError.statusText,
+          code: authError.code,
+          details: authError.details,
+          hint: authError.hint,
+          fullError: JSON.stringify(authError, null, 2)
         });
         
         // Tratar erros específicos do Supabase
-        if (authError.message.includes('User already registered')) {
+        if (authError.message.includes('User already registered') || 
+            authError.message.includes('already registered') ||
+            authError.message.includes('user_already_exists')) {
           console.log('🔄 Erro: Usuário já registrado');
-          setError(`O email "${formData.email}" já está cadastrado no sistema. Tente fazer login ou use outro email.`);
+          setError(`O email "${formData.email}" já está cadastrado no sistema.`);
+          
+          // Mostrar opção de ir para login após 2 segundos
+          setTimeout(() => {
+            const confirmLogin = window.confirm(
+              `O email "${formData.email}" já possui uma conta.\n\nDeseja ir para a página de login agora?`
+            );
+            if (confirmLogin) {
+              navigate('/login', { 
+                state: { 
+                  email: formData.email,
+                  message: 'Email já cadastrado. Faça login com suas credenciais.',
+                  type: 'info'
+                }
+              });
+            }
+          }, 2000);
         } else if (authError.message.includes('Invalid email')) {
           console.log('📧 Erro: Email inválido');
           setError('Email inválido. Verifique o formato do email e tente novamente.');
@@ -162,7 +212,7 @@ export default function Register() {
       }
 
       console.log('🎉 Cadastro realizado com sucesso!');
-      setSuccess('Conta criada com sucesso! ✅\n\nIMPORTANTE: Verifique sua caixa de entrada e clique no link de confirmação antes de tentar fazer login.\n\nSem a confirmação do email, você não conseguirá acessar o sistema.');
+      setSuccess('Conta criada com sucesso! ✅\n\nVocê já pode fazer login com suas credenciais.');
       
       // Enviar mensagem de confirmação via WhatsApp
       try {
@@ -182,16 +232,16 @@ export default function Register() {
         // Não interromper o fluxo se o WhatsApp falhar
       }
       
-      console.log('⏰ Redirecionando para login em 5 segundos...');
-      // Redirecionar após 5 segundos para dar tempo de ler a mensagem
+      console.log('⏰ Redirecionando para login em 3 segundos...');
+      // Redirecionar após 3 segundos para dar tempo de ler a mensagem
       setTimeout(() => {
         navigate('/login', { 
           state: { 
-            message: 'Confirme seu email antes de fazer login',
-            type: 'info'
+            message: 'Conta criada com sucesso! Faça login com suas credenciais.',
+            type: 'success'
           }
         });
-      }, 5000);
+      }, 3000);
       
     } catch (err: any) {
       console.error('💥 Erro inesperado durante o cadastro:', err);
@@ -200,8 +250,24 @@ export default function Register() {
       console.error('📝 Detalhes completos:', JSON.stringify(err, null, 2));
       
       // Tratar erros específicos
-      if (err?.message?.includes('duplicate key') || err?.message?.includes('already exists')) {
+      if (err?.message?.includes('duplicate key') || 
+          err?.message?.includes('already exists') ||
+          err?.message?.includes('user_already_exists')) {
         setError(`O email "${formData.email}" já está cadastrado no sistema. Tente fazer login ou use outro email.`);
+        
+        setTimeout(() => {
+          const goToLogin = window.confirm(
+            'Este email já está cadastrado. Deseja ir para a página de login?'
+          );
+          if (goToLogin) {
+            navigate('/login', { 
+              state: { 
+                email: formData.email,
+                message: 'Email já cadastrado. Faça login com suas credenciais.' 
+              }
+            });
+          }
+        }, 2000);
       } else {
         setError('Erro inesperado durante o cadastro. Tente novamente ou entre em contato com o suporte.');
       }
@@ -250,7 +316,7 @@ export default function Register() {
                   type="text"
                   value={formData.nome_completo}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
+                  className="w-full pl-12 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="Seu nome completo"
                   required
                 />
@@ -270,7 +336,7 @@ export default function Register() {
                   type="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
+                  className="w-full pl-12 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="seu@email.com"
                   required
                 />
@@ -290,7 +356,7 @@ export default function Register() {
                   type="tel"
                   value={formData.telefone}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
+                  className="w-full pl-12 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="(11) 99999-9999"
                   required
                 />
@@ -310,7 +376,7 @@ export default function Register() {
                   type="date"
                   value={formData.data_nascimento}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
+                  className="w-full pl-12 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   required
                 />
               </div>
@@ -328,7 +394,7 @@ export default function Register() {
                   name="unit_id"
                   value={formData.unit_id}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all appearance-none text-base"
+                  className="w-full pl-12 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all appearance-none text-base"
                   required
                 >
                   <option value="" className="bg-gray-800 text-white">
@@ -356,7 +422,7 @@ export default function Register() {
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-12 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
+                  className="w-full pl-12 pr-12 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="••••••••"
                   required
                 />
@@ -383,7 +449,7 @@ export default function Register() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-12 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
+                  className="w-full pl-12 pr-12 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-base"
                   placeholder="••••••••"
                   required
                 />

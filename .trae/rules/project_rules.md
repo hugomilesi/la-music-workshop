@@ -263,13 +263,13 @@ Don't show or discuss the current implementation unless specifically requested.
 Key=sbp_cd302da779758c6ba3ca54339901c5a5c7a5b636
 project_id = xfqgcfeoswlkcgdtikco
 project_name = La_Pulse_v2
-service_role=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmcWdjZmVvc3dsa2NnZHRpa2NvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDU1NTM2MywiZXhwIjoyMDY2MTMxMzYzfQ.**zSlz36DiKkMjAyiaJYPeIUpispPd2emykGxD07bP3WI**
+service_role=your_supabase_service_role_key_here
 
-anon_public=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmcWdjZmVvc3dsa2NnZHRpa2NvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA1NTUzNjMsImV4cCI6MjA2NjEzMTM2M30.eu-4s7H7nFjGqN4rDPMqNHIrjFys2V9u4zPotH8W3Y0
+anon_public=your_supabase_anon_key_here
 
 # Evolution API Creds
 EVOLUTION_API_URL=https://evola.latecnology.com.br/
-EVOLUTION_API_KEY=61E65C47B0D4-44D1-919D-C6137E824D77
+EVOLUTION_API_KEY=your_evolution_api_key_here
 EVOLUTION_INSTANCE_NAME=Hugo Teste
 EVOLUTION_INSTANCE=Hugo Teste
 
@@ -277,13 +277,18 @@ EVOLUTION_INSTANCE=Hugo Teste
 # Regras da oficina
 
 **Assegure-se de que:**
+
+### Alunos e Convidados
 * Um aluno nao pode se inscrever mais de uma vez na mesma oficina.
 * Um aluno pode escolher mais de uma oficina, desde que sejam diferentes.
-* O botao de adicionar conviodado na inscricão do evento do lado do aluno, só deve aparecer se o campo permite convidados for true.
+* O botao de adicionar convidado na inscricão do evento do lado do aluno, só deve aparecer se o campo permite convidados for true.
 * As oficinas devem aparecer para o aluno com base na sua unidade de cadastro(campo grande, barra ou recreio). As oficinas tambem vao ter unidades, entao se um aluno for de campo grande, apenas oficinas com a tag de campoo grande aparecerão para ele e vice-versa.
-* O carrossel deve mostrar todas as oficinas, independentemente da unidade do aluno, é apenas um mostruário.
-* O aluno pode modificar sua unidade de cadastro em qualquer momento. Se ele modificar a unidade e ja estiver inscrito em uma oficina, o sisteme deve alertá-lo que as inscrições feitas serão deletadas e etc.
+* O convidado do aluno pode fazer uma oficina diferente da do convidado, mas precisa ser uma oficina que aceita convidado.
+* O aluno pode modificar sua unidade de cadastro em qualquer momento. Se ele modificar a unidade e ja estiver inscrito em uma oficina, o sisteme deve alertá-lo que as inscrições feitas serão deletadas e etc. 
 * Ao clicar no botao inscrever-se, o aluno deve ser redirecionado para o formulario de inscrição para a oficina escolhida.
+
+* O carrossel deve mostrar todas as oficinas, independentemente da unidade do aluno, é apenas um mostruário.
+
 * Certifique-se de refletir os dados os inscritos corretamente no dashboard de amdin, exibindo a lista de inscritos, etc, nao utilize dados mockados no frontend.
 * Todos os CRUD's de usuarios e administradores funcionam corretamente.
 * Ao remover um usuário, Assegure-se de que ele foi COMPLETAMENTE removido, nao remova apenas do frontend ou do esquema public.
@@ -293,4 +298,5 @@ EVOLUTION_INSTANCE=Hugo Teste
 * o cliente anônimo deve ter permissão para fazer UPDATE na tabela users, sendo possivel criar uma conta.
 * o cliente anônimo deve ter conseguir ver todas as oficinas disponiveis, mas nao se inscrever.
 * EVITE SEMPRE A RECURSÃO INFINITA
-* 
+* Antes de modificar ou criar um RLS, verifique se a nova regra nao vai entrar em conflito com as outras.
+* Os admins devem poder ver e excluir todas as contas de usuários cadastrados no sistema.

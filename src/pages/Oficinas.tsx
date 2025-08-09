@@ -3,7 +3,8 @@ import { Search, Filter, Clock, Users, Star, Calendar } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
-import { useStore } from '@/store/useStore';
+import EnrollmentModal from '@/components/EnrollmentModal';
+import { useStore } from '../store/useStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -21,56 +22,46 @@ const getUnitName = (unitId: string): string => {
 };
 
 export default function Oficinas() {
-  const { workshops, fetchWorkshops, loading, createRegistration } = useStore();
+  const { createRegistration } = useStore();
   const { user, signInAnonymously } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
   const { showSuccess, showError, showInfo } = useToast();
   const navigate = useNavigate();
+  
+  const { workshops, fetchWorkshops } = useStore();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [hasInitialized, setHasInitialized] = useState(false);
+  const [selectedWorkshop, setSelectedWorkshop] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Evitar múltiplas chamadas
-    if (hasInitialized || loading.workshops) {
-      return;
-    }
+    const loadWorkshops = async () => {
+      try {
+        // Se está carregando o perfil, aguardar
+        if (profileLoading) {
+          return;
+        }
+        
+        if (user && profile?.unit_id && profile?.user_type !== 'admin') {
+          // Se o usuário estiver logado, tiver uma unidade e NÃO for admin, buscar workshops da unidade
+          console.log('🏢 Carregando workshops para unidade:', profile.unit_id);
+          await fetchWorkshops(profile.unit_id);
+        } else {
+          // Caso contrário (usuário anônimo, sem unidade ou admin), buscar todos os workshops
+          console.log('🌐 Carregando todos os workshops');
+          await fetchWorkshops();
+        }
+      } catch (error) {
+        console.error('Erro ao carregar workshops:', error);
+      }
+    };
 
-    console.log('🔄 Oficinas useEffect triggered:', {
-      user: !!user,
-      profile: !!profile,
-      profileLoading,
-      workshopsLength: workshops.length,
-      loadingWorkshops: loading.workshops,
-      userType: profile?.user_type,
-      unitId: profile?.unit_id
-    });
+    loadWorkshops();
+  }, [user, profile?.unit_id, profileLoading]); // Removido fetchWorkshops das dependências para evitar loop infinito
 
-    // Para usuários não autenticados, mostrar todas as oficinas
-    if (!user) {
-      console.log('👤 Usuário não autenticado - buscando todas as oficinas');
-      fetchWorkshops();
-      setHasInitialized(true);
-      return;
-    }
 
-    // Para usuários autenticados, aguardar o perfil carregar
-    if (!profileLoading && profile) {
-      // Se for admin, buscar todas as oficinas (sem filtro de unidade)
-      // Se for aluno/responsável, buscar apenas da sua unidade
-      const shouldFilterByUnit = profile?.user_type !== 'admin';
-      const unitIdToFetch = shouldFilterByUnit ? profile?.unit_id : undefined;
-      
-      console.log('📞 Usuário autenticado - chamando fetchWorkshops com:', {
-        shouldFilterByUnit,
-        unitIdToFetch,
-        userType: profile?.user_type
-      });
-      
-      fetchWorkshops(unitIdToFetch);
-      setHasInitialized(true);
-    }
-  }, [user, profile, profileLoading, hasInitialized, loading.workshops]);
 
   const handleEnroll = async (workshopId: string) => {
     try {
@@ -83,22 +74,62 @@ export default function Oficinas() {
         return;
       }
       
-      // Primeiro buscar o ID do usuário na tabela users
-      let { data: userRecord, error: userError } = await supabase
-        .from('users')
-        .select('id, data_nascimento')
-        .eq('user_id', user.id)
-        .single();
+      // Verificar se o workshop existe localmente primeiro
+      const workshop = workshops.find(w => w.id === workshopId);
+      if (!workshop) {
+        showError('Workshop não encontrado.');
+        return;
+      }
       
-      if (userError) {
+      // Verificar se o usuário pode se inscrever nesta oficina (mesma unidade, exceto para admins)
+      if (profile?.unit_id && workshop.unit_id !== profile.unit_id && profile?.user_type !== 'admin') {
+        showError('Você só pode se inscrever em oficinas da sua unidade.');
+        return;
+      }
+      
+      // Buscar dados do usuário e verificar inscrições em uma única query otimizada
+      const [userResult, registrationResult] = await Promise.all([
+        supabase
+          .from('users')
+          .select('id, data_nascimento')
+          .eq('user_id', user.id)
+          .single(),
+        supabase
+          .from('inscricoes')
+          .select('id, status_inscricao')
+          .eq('workshop_id', workshopId)
+          .eq('user_id', user.id)
+          .neq('status_inscricao', 'cancelada')
+          .maybeSingle()
+      ]);
+      
+      if (userResult.error) {
+        console.error('Erro ao buscar dados do usuário:', userResult.error);
         showError('Erro ao verificar dados do usuário.');
         return;
       }
       
+      if (registrationResult.error && registrationResult.error.code !== 'PGRST116') {
+        console.error('Erro ao verificar inscrições:', registrationResult.error);
+        showError('Erro ao verificar inscrições existentes.');
+        return;
+      }
+      
+      // Verificar se já está inscrito
+      if (registrationResult.data) {
+        showError('Você já está inscrito neste workshop.');
+        return;
+      }
+      
+      // Verificar vagas disponíveis
+      if (workshop.vagas_disponiveis <= 0) {
+        showError('Não há vagas disponíveis para este workshop.');
+        return;
+      }
+      
       // Verificar validação de idade
-      const workshop = workshops.find(w => w.id === workshopId);
-      if (workshop && userRecord.data_nascimento) {
-        const birthDate = new Date(userRecord.data_nascimento);
+      if (userResult.data.data_nascimento) {
+        const birthDate = new Date(userResult.data.data_nascimento);
         const today = new Date();
         const userAge = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
@@ -120,25 +151,16 @@ export default function Oficinas() {
         }
       }
       
-      // Verificar se o usuário já está inscrito neste workshop (apenas inscrições ativas)
-      const userRegistrations = await supabase
-        .from('inscricoes')
-        .select('id, status_inscricao')
-        .eq('workshop_id', workshopId)
-        .eq('user_id', userRecord.id)
-        .neq('status_inscricao', 'cancelada') // Excluir inscrições canceladas
-        .maybeSingle();
-      
-      if (userRegistrations.data) {
-        showError('Você já está inscrito neste workshop.');
-        return;
-      }
-      
-      // Salvar o workshop selecionado e redirecionar para o formulário de inscrição
-      localStorage.setItem('selectedWorkshopId', workshopId);
-      navigate('/inscricao');
+      // Abrir modal de inscrição
+      setSelectedWorkshop(workshop);
+      setIsModalOpen(true);
     } catch (error: any) {
-      showError(error.message || 'Erro ao verificar inscrição. Tente novamente.');
+      console.error('Erro no handleEnroll:', error);
+      if (error.message?.includes('timeout') || error.message?.includes('Timeout')) {
+        showError('Tempo limite excedido. Verifique sua conexão e tente novamente.');
+      } else {
+        showError(error.message || 'Erro ao verificar inscrição. Tente novamente.');
+      }
     }
   };
 
@@ -180,44 +202,50 @@ export default function Oficinas() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gradient-hero relative overflow-hidden fullscreen-content">
       <Navigation />
       
       {/* Header */}
       <section className="pt-24 pb-12">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-8 md:mb-12 px-4">
-            <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold text-white mb-4 md:mb-6 glow font-inter">
+        <div className="container mx-auto px-4 notch-safe">
+          <div className="text-center mb-8 md:mb-12 px-4 animate-fadeInUp notch-safe-top">
+            <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold text-white mb-4 md:mb-6 glow font-inter animate-fadeInUp" style={{animationDelay: '0.1s'}}>
               Oficinas Disponíveis
             </h1>
-            <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto font-source">
+            <p className="text-lg md:text-xl text-white/80 max-w-3xl mx-auto font-source animate-fadeInUp" style={{animationDelay: '0.2s'}}>
               Explore nossa seleção de oficinas musicais e encontre a perfeita para o seu nível e interesse.
             </p>
-            {user && profile && (
-              <div className="mt-3 md:mt-4 p-3 bg-blue-500/20 border border-blue-500/30 rounded-lg max-w-2xl mx-auto">
-                <p className="text-blue-200 text-xs md:text-sm">
-                  {profile.user_type === 'admin' ? (
-                    <><span className="font-medium">Visualização:</span> Exibindo todas as oficinas de todas as unidades</>
-                  ) : (
-                    <><span className="font-medium">Filtro ativo:</span> Exibindo apenas oficinas da sua unidade ({getUnitName(profile.unit_id)})</>
-                  )}
-                </p>
-              </div>
-            )}
+
           </div>
           
+          {profileError && (
+            <div className="max-w-2xl mx-auto mb-8">
+              <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 text-center">
+                <p className="text-red-200 mb-4">{profileError}</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  Recarregar Página
+                </button>
+              </div>
+            </div>
+          )}
+          
+
+
           {/* Filters */}
-          <Card className="mb-6 md:mb-8">
+          <Card className="mb-6 md:mb-8 animate-fadeInUp pwa-touch-area" style={{animationDelay: '0.3s'}}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               {/* Search */}
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 w-5 h-5" />
+                <Search className="absolute left-0.5 md:left-3 top-1/2 transform -translate-y-1/2 text-white/60 w-2.5 h-2.5 md:w-5 md:h-5 z-20" />
                 <input
                   type="text"
                   placeholder="Buscar oficinas..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-base"
+                  className="w-full pl-5 md:pl-12 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm md:text-base input-mobile-optimized touch-target"
                 />
               </div>
               
@@ -225,11 +253,11 @@ export default function Oficinas() {
               
               {/* Instrumento Filter */}
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 w-5 h-5" />
+                <Calendar className="absolute left-1 md:left-3 top-1/2 transform -translate-y-1/2 text-white/60 w-2.5 h-2.5 md:w-5 md:h-5 z-20" />
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full pl-10 pr-4 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none text-base"
+                  className="w-full pl-6 md:pl-12 pr-8 py-4 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none text-sm md:text-base input-mobile-optimized touch-target"
                 >
                   <option value="all" className="bg-gray-800">Todos os instrumentos</option>
                   {Array.from(new Set(workshops.map(w => w.instrumento).filter(Boolean))).map(instrumento => (
@@ -247,18 +275,39 @@ export default function Oficinas() {
       {/* Workshops Grid */}
       <section className="pb-20">
         <div className="container mx-auto px-4">
-          {loading.workshops ? (
-            <div className="flex justify-center items-center py-8 md:py-12">
-              <div className="animate-spin rounded-full h-8 w-8 md:h-12 md:w-12 border-b-2 border-purple-500"></div>
+          {workshops.length === 0 ? (
+            <div className="flex flex-col justify-center items-center py-8 md:py-12">
+              <div className="animate-spin rounded-full h-8 w-8 md:h-12 md:w-12 border-b-2 border-purple-500 mb-4"></div>
+              <p className="text-white/80 text-sm md:text-base">
+                {user && profile?.unit_id 
+                  ? `Carregando oficinas da unidade ${getUnitName(profile.unit_id)}...`
+                  : 'Carregando oficinas disponíveis...'
+                }
+              </p>
             </div>
           ) : filteredWorkshops.length === 0 ? (
             <Card className="text-center py-8 md:py-12">
               <h3 className="text-lg md:text-2xl font-semibold text-white mb-3 md:mb-4">Nenhuma oficina encontrada</h3>
-              <p className="text-sm md:text-base text-white/80">Tente ajustar os filtros para encontrar oficinas disponíveis.</p>
+              <p className="text-sm md:text-base text-white/80">
+                {user && profile?.unit_id 
+                  ? `Não há oficinas disponíveis na unidade ${getUnitName(profile.unit_id)} no momento.`
+                  : 'Tente ajustar os filtros para encontrar oficinas disponíveis.'
+                }
+              </p>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-              {filteredWorkshops.map((workshop) => {
+            <>
+              {/* Contador de oficinas */}
+              <div className="mb-6 text-center">
+                <p className="text-white/80 text-sm md:text-base">
+                  {user && profile?.unit_id 
+                    ? `Exibindo ${filteredWorkshops.length} oficina${filteredWorkshops.length !== 1 ? 's' : ''} da unidade ${getUnitName(profile.unit_id)}`
+                    : `Exibindo ${filteredWorkshops.length} oficina${filteredWorkshops.length !== 1 ? 's' : ''} disponíveis`
+                  }
+                </p>
+              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 px-2 md:px-0 grid-mobile-safe">
+              {filteredWorkshops.map((workshop, index) => {
                 // Verificações de segurança para propriedades
                 const nome = workshop.nome || 'Workshop sem nome';
                 const descricao = workshop.descricao || 'Descrição não disponível';
@@ -270,15 +319,20 @@ export default function Oficinas() {
                 const capacidade = workshop.capacidade || 1;
                 const data_inicio = workshop.data_inicio || new Date().toISOString();
                 const data_fim = workshop.data_fim || new Date().toISOString();
+                const idade_minima = workshop.idade_minima;
+                const idade_maxima = workshop.idade_maxima;
                 
                 return (
-                <Card key={workshop.id} className="group hover:scale-105 transition-all duration-300 cursor-pointer">
+                <Card key={workshop.id} className="group hover:scale-[1.02] md:hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/20 transition-all duration-500 cursor-pointer animate-fadeInUp overflow-hidden workshop-card" style={{animationDelay: `${0.4 + index * 0.1}s`}}>
                   {/* Image */}
                   <div className="relative overflow-hidden rounded-lg mb-4">
                     <img
-                       src={`https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent(instrumento + ' music workshop')}&image_size=landscape_4_3`}
+                       src={workshop.image && workshop.image.trim() !== '' ? workshop.image : '/assets/lamusic.png'}
                        alt={nome}
-                       className="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
+                       className="w-full h-48 object-cover rounded-lg group-hover:scale-110 transition-transform duration-500"
+                       onError={(e) => {
+                         e.currentTarget.src = '/assets/lamusic.png';
+                       }}
                      />
                     <div className="absolute top-4 left-4">
                       <span className={`px-3 py-1 ${getUnitColor(workshop.unidade)} text-white text-sm rounded-full font-medium`}>
@@ -293,11 +347,11 @@ export default function Oficinas() {
                   </div>
                   
                   {/* Content */}
-                  <div className="space-y-3 md:space-y-4">
+                  <div className="space-y-3 md:space-y-4 p-1">
                     <div>
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-lg md:text-xl font-semibold text-white font-inter leading-tight pr-2">
-                           {nome}
+                      <div className="flex items-start justify-between mb-2 gap-2">
+                        <h3 className="text-base md:text-lg lg:text-xl font-semibold text-white font-inter leading-tight flex-1 min-w-0 workshop-title">
+                           <span className="block">{nome}</span>
                          </h3>
                         <div className="flex-shrink-0">
                           <div className={`w-3 h-3 rounded-full ${
@@ -305,7 +359,7 @@ export default function Oficinas() {
                           }`} />
                         </div>
                       </div>
-                       <p className="text-white/80 text-sm font-source line-clamp-2">
+                       <p className="text-white/80 text-sm font-source line-clamp-2 break-words">
                          {descricao}
                        </p>
                     </div>
@@ -313,33 +367,40 @@ export default function Oficinas() {
                     {/* Professor */}
                     <div className="flex items-center gap-2 text-white/70">
                        <Users className="w-4 h-4 flex-shrink-0" />
-                       <span className="text-sm truncate">Prof. {workshop.instructor || 'A definir'}</span>
+                       <span className="text-sm truncate flex-1 min-w-0">Prof. {workshop.instructor || 'A definir'}</span>
                      </div>
                     
-                    {/* Data e Vagas */}
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-white/70">
-                       <div className="flex items-center gap-1">
-                         <Clock className="w-4 h-4 flex-shrink-0" />
-                         <span className="truncate">{new Date(data_inicio).toLocaleDateString()}</span>
-                       </div>
-                       <div className="flex items-center gap-1">
-                         <Users className="w-4 h-4 flex-shrink-0" />
-                         <span className="truncate">{vagas_disponiveis}/{capacidade} vagas</span>
-                       </div>
+                    {/* Data */}
+                    <div className="flex items-center gap-1 text-sm text-white/70">
+                       <Clock className="w-4 h-4 flex-shrink-0" />
+                       <span className="truncate">{new Date(data_inicio).toLocaleDateString()}</span>
                      </div>
                     
-                    {/* Participants Progress */}
+                    {/* Workshop Info */}
                     <div className="text-sm text-white/70">
-                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 mb-2">
+                       <div className="flex justify-between items-center gap-1 mb-2">
                          <span className="truncate">Local: {local}</span>
-                         <span className="text-xs sm:text-sm">{capacidade - vagas_disponiveis}/{capacidade} inscritos</span>
+                         <span className="text-xs sm:text-sm whitespace-nowrap">{Math.max(0, vagas_disponiveis)}/{capacidade} vagas</span>
                        </div>
-                       <div className="w-full bg-white/20 rounded-full h-2">
+                       <div className="w-full bg-white/20 rounded-full h-2 mb-2">
                          <div 
-                           className="bg-gradient-primary h-2 rounded-full transition-all duration-300"
-                           style={{ width: `${((capacidade - vagas_disponiveis) / capacidade) * 100}%` }}
+                           className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-300"
+                           style={{ width: `${Math.max(0, Math.min(100, ((capacidade - vagas_disponiveis) / capacidade) * 100))}%` }}
                          />
                        </div>
+                       {/* Classificação Etária */}
+                       {(idade_minima || idade_maxima) && (
+                         <div className="text-xs text-white/60">
+                           <span className="font-medium">Idade: </span>
+                           {idade_minima && idade_maxima ? (
+                             `${idade_minima} - ${idade_maxima} anos`
+                           ) : idade_minima ? (
+                             `A partir de ${idade_minima} anos`
+                           ) : (
+                             `Até ${idade_maxima} anos`
+                           )}
+                         </div>
+                       )}
                      </div>
                     
                     {/* Schedule */}
@@ -363,7 +424,7 @@ export default function Oficinas() {
                          size="sm"
                          disabled={vagas_disponiveis === 0 || status !== 'ativa'}
                          onClick={() => handleEnroll(workshop.id)}
-                         className="w-full sm:w-auto text-sm px-4 py-2"
+                         className="w-full sm:w-auto text-sm px-4 py-2 md:py-3 hover:scale-[1.02] md:hover:scale-105 transition-transform duration-300 btn-mobile-optimized touch-target bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg hover:shadow-xl"
                        >
                          {vagas_disponiveis === 0 ? 'Lotado' : status !== 'ativa' ? 'Indisponível' : 'Inscrever-se'}
                        </Button>
@@ -373,18 +434,31 @@ export default function Oficinas() {
                 );
               })}
             </div>
+            </>
           )}
         </div>
       </section>
       
       {/* Footer */}
-      <footer className="py-8 border-t border-white/20">
+      <footer className="py-8 border-t border-white/20 notch-safe-bottom">
         <div className="container mx-auto px-4 text-center">
           <p className="text-white/60 font-source">
             © 2024 LA Music Week. Todos os direitos reservados.
           </p>
         </div>
       </footer>
+      
+      {/* Modal de Inscrição */}
+      {selectedWorkshop && (
+        <EnrollmentModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setSelectedWorkshop(null);
+          }}
+          workshop={selectedWorkshop}
+        />
+      )}
     </div>
   );
 }

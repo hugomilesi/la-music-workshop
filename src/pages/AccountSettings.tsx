@@ -3,9 +3,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+import { sanitizeErrorMessage } from '../utils/errorHandler';
 import { ArrowLeft, User, Mail, Phone, Calendar, MapPin, Save, Music, Users, Trash2, CheckCircle, XCircle, AlertCircle, Shield, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { useStore } from '../store/useStore';
 
 interface FormData {
   nome_completo: string;
@@ -40,8 +42,8 @@ const getUnitName = (unitId: string): string => {
 };
 
 const AccountSettings: React.FC = () => {
-  const { user } = useAuth();
-  const { profile, loading: profileLoading, refetch } = useUserProfile();
+  const { user, reloadUserProfile } = useAuth();
+  const { userProfile: profile, isLoading: profileLoading, refetch } = useUserProfile();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [enrollments, setEnrollments] = useState<UserEnrollment[]>([]);
@@ -195,35 +197,61 @@ const AccountSettings: React.FC = () => {
     if (isPaid) {
       // Para oficinas pagas, apenas mostrar informações de contato
       toast.info('Entre em contato conosco para cancelar esta inscrição:\n\nWhatsApp: (21) 99999-9999\nEmail: contato@exemplo.com');
+      setCancelDialog({ isOpen: false, enrollmentId: '', workshopName: '', isPaid: false });
       return;
     }
     
     try {
-      const { error } = await supabase
+      // Primeiro, buscar os dados da inscrição para obter o workshop_id
+      const { data: enrollment, error: fetchError } = await supabase
         .from('inscricoes')
-        .update({ 
-          status_inscricao: 'cancelada',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', enrollmentId);
+        .select('workshop_id')
+        .eq('id', enrollmentId)
+        .single();
       
-      if (error) {
-        toast.error('Erro ao cancelar inscrição: ' + error.message);
+      if (fetchError) {
+        toast.error('Erro ao buscar dados da inscrição: ' + sanitizeErrorMessage(fetchError));
         return;
       }
       
-      toast.success('Inscrição cancelada com sucesso!');
+      // Remover permanentemente a inscrição
+      const { error: deleteError } = await supabase
+        .from('inscricoes')
+        .delete()
+        .eq('id', enrollmentId);
+      
+      if (deleteError) {
+        toast.error('Erro ao remover inscrição: ' + sanitizeErrorMessage(deleteError));
+        return;
+      }
+      
+      // Buscar o workshop atual para incrementar as vagas
+      const { data: workshop, error: workshopFetchError } = await supabase
+        .from('workshops')
+        .select('vagas_disponiveis')
+        .eq('id', enrollment.workshop_id)
+        .single();
+      
+      if (!workshopFetchError && workshop) {
+        // Vagas são atualizadas automaticamente via triggers no banco de dados
+      }
+      
+      toast.success('Inscrição removida permanentemente!');
+      
+      // Fechar o modal
+      setCancelDialog({ isOpen: false, enrollmentId: '', workshopName: '', isPaid: false });
       
       // Recarregar as inscrições
       await fetchUserEnrollments();
     } catch (error) {
-      toast.error('Erro inesperado ao cancelar inscrição');
+      console.error('Erro ao remover inscrição:', error);
+      toast.error('Erro inesperado ao remover inscrição');
     }
   };
 
   useEffect(() => {
     fetchUserEnrollments();
-  }, [fetchUserEnrollments]);
+  }, []); // Removido fetchUserEnrollments das dependências para evitar loops
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -278,7 +306,7 @@ const AccountSettings: React.FC = () => {
         .eq('status_inscricao', 'ativa');
       
       if (cancelError) {
-        toast.error('Erro ao cancelar inscrições: ' + cancelError.message);
+        toast.error('Erro ao cancelar inscrições: ' + sanitizeErrorMessage(cancelError));
         return;
       }
       
@@ -323,47 +351,42 @@ const AccountSettings: React.FC = () => {
 
       if (updateError) {
         // Erro ao atualizar perfil
-        toast.error('Erro ao atualizar perfil: ' + updateError.message);
+        toast.error('Erro ao atualizar perfil: ' + sanitizeErrorMessage(updateError));
         return;
       }
 
-      // Se o email foi alterado, atualizar no Supabase Auth
+      // Se o email foi alterado, usar a função do banco para sincronizar
       if (formData.email !== user.email) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: formData.email
+        console.log('🔄 Atualizando email de', user.email, 'para', formData.email);
+        
+        // Usar a função do banco de dados para atualizar email em ambas as tabelas
+        const { data: updateResult, error: updateError } = await supabase.rpc('update_user_email', {
+          p_user_id: user.id,
+          p_old_email: user.email,
+          p_new_email: formData.email
         });
 
-        if (emailError) {
-          // Erro ao atualizar email
-          
-          // Tratamento específico para erro de email já registrado
-          if (emailError.message?.includes('already been registered') || 
-              emailError.message?.includes('User with this email address has already been registered')) {
-            toast.error('Este email já está sendo usado por outra conta. Tente um email diferente.');
-          } else if (emailError.status === 422) {
-            toast.error('Email inválido. Verifique o formato e tente novamente.');
-          } else {
-            toast.error('Não foi possível atualizar o email. Tente novamente mais tarde.');
-          }
+        if (updateError) {
+          console.error('❌ Erro ao chamar função de atualização:', updateError);
+          toast.error('Erro ao atualizar email: ' + sanitizeErrorMessage(updateError));
           return;
         }
 
-        // Atualizar email na tabela users também
-        const { error: emailUpdateError } = await supabase
-          .from('users')
-          .update({ email: formData.email })
-          .eq('user_id', user.id);
-
-        if (emailUpdateError) {
-          // Erro ao atualizar email na tabela
+        if (!updateResult?.success) {
+          console.error('❌ Falha na atualização do email:', updateResult?.message);
+          toast.error(updateResult?.message || 'Falha ao atualizar email');
+          return;
         }
-
-        toast.success('Dados atualizados! Verifique seu novo email para confirmar a alteração.');
+        
+        console.log('✅ Email atualizado com sucesso:', updateResult);
+        toast.success('Email atualizado com sucesso! O email anterior agora está disponível para novos cadastros.');
       } else {
         toast.success('Dados atualizados com sucesso!');
       }
 
-      // Recarregar o perfil
+      // Limpar cache e recarregar o perfil para garantir dados atualizados
+      console.log('🔄 Recarregando perfil após atualização...');
+      await reloadUserProfile();
       await refetch();
     } catch (error) {
       // Erro inesperado
@@ -406,7 +429,7 @@ const AccountSettings: React.FC = () => {
         {/* Header */}
         <div className="mb-8">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/')}
             className="flex items-center text-white/80 hover:text-white mb-4 transition-colors"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
@@ -468,34 +491,34 @@ const AccountSettings: React.FC = () => {
                 
                 return (
                   <div key={enrollment.id} className="bg-white/5 rounded-lg p-4 border border-white/10">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h4 className="font-semibold text-white">{enrollment.workshops.nome}</h4>
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                          <h4 className="font-semibold text-white text-sm sm:text-base break-words">{enrollment.workshops.nome}</h4>
                           {isPaid && (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium text-yellow-400 bg-yellow-400/10 border border-yellow-400/20">
+                            <span className="px-2 py-1 rounded-full text-xs font-medium text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 self-start">
                               Paga
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center space-x-4 text-sm text-white/70">
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="h-4 w-4" />
-                            <span>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-white/70">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4 flex-shrink-0" />
+                            <span className="text-xs sm:text-sm break-words">
                               {new Date(enrollment.workshops.data_inicio).toLocaleDateString('pt-BR')} - {new Date(enrollment.workshops.data_fim).toLocaleDateString('pt-BR')}
                             </span>
                           </div>
-                          <div className="flex items-center space-x-1">
-                            <Users className="h-4 w-4" />
-                            <span>{enrollment.workshops.capacidade - enrollment.workshops.vagas_disponiveis}/{enrollment.workshops.capacidade}</span>
+                          <div className="flex items-center gap-1">
+                            <Users className="h-4 w-4 flex-shrink-0" />
+                            <span className="text-xs sm:text-sm">{Math.max(0, Math.min(enrollment.workshops.capacidade, enrollment.workshops.capacidade - enrollment.workshops.vagas_disponiveis))}/{enrollment.workshops.capacidade}</span>
                           </div>
                         </div>
                         <p className="text-xs text-white/60 mt-2">
                           Inscrito em: {new Date(enrollment.data_inscricao).toLocaleDateString('pt-BR')}
                         </p>
                       </div>
-                      <div className="ml-4 flex items-center space-x-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor} bg-white/10 flex items-center space-x-1`}>
+                      <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-2 sm:ml-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor} bg-white/10 flex items-center gap-1 flex-shrink-0`}>
                           {enrollment.status_inscricao === 'confirmada' && <CheckCircle className="h-3 w-3" />}
                           {enrollment.status_inscricao === 'pendente' && <AlertCircle className="h-3 w-3" />}
                           {enrollment.status_inscricao === 'cancelada' && <XCircle className="h-3 w-3" />}
@@ -508,7 +531,7 @@ const AccountSettings: React.FC = () => {
                               enrollment.workshops.nome, 
                               isPaid
                             )}
-                            className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                            className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center flex-shrink-0 touch-target"
                             title={isPaid ? 'Contatar suporte para cancelar' : 'Cancelar inscrição'}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -561,7 +584,7 @@ const AccountSettings: React.FC = () => {
                 required
               />
               <p className="text-xs text-white/60 mt-1">
-                Ao alterar o email, você receberá um link de confirmação no novo endereço.
+                Ao alterar o email, a mudança será aplicada imediatamente em todo o sistema.
               </p>
             </div>
 
@@ -662,17 +685,17 @@ const AccountSettings: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal de confirmação para cancelamento de inscrição */}
+      {/* Modal de confirmação para remoção de inscrição */}
       <ConfirmDialog
         isOpen={cancelDialog.isOpen}
         onClose={() => setCancelDialog({ isOpen: false, enrollmentId: '', workshopName: '', isPaid: false })}
         onConfirm={handleCancelEnrollment}
-        title={cancelDialog.isPaid ? 'Oficina Paga - Contatar Suporte' : 'Cancelar Inscrição'}
+        title={cancelDialog.isPaid ? 'Oficina Paga - Contatar Suporte' : 'Remover Inscrição'}
         message={cancelDialog.isPaid 
           ? `Esta é uma oficina paga. Para cancelar a inscrição em "${cancelDialog.workshopName}", entre em contato com nossa equipe através do WhatsApp ou email.`
-          : `Tem certeza que deseja cancelar sua inscrição em "${cancelDialog.workshopName}"? Esta ação não pode ser desfeita.`
+          : `Tem certeza que deseja remover permanentemente sua inscrição em "${cancelDialog.workshopName}"? Esta ação não pode ser desfeita e você precisará se inscrever novamente se desejar participar.`
         }
-        confirmText={cancelDialog.isPaid ? 'Entendi' : 'Cancelar Inscrição'}
+        confirmText={cancelDialog.isPaid ? 'Entendi' : 'Remover Permanentemente'}
         cancelText="Voltar"
         variant={cancelDialog.isPaid ? 'info' : 'danger'}
         icon={cancelDialog.isPaid ? <MessageCircle className="w-6 h-6" /> : <Trash2 className="w-6 h-6" />}

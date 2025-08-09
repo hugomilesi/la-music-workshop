@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://xfqgcfeoswlkcgdtikco.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmcWdjZmVvc3dsa2NnZHRpa2NvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA1NTUzNjMsImV4cCI6MjA2NjEzMTM2M30.eu-4s7H7nFjGqN4rDPMqNHIrjFys2V9u4zPotH8W3Y0'
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhmcWdjZmVvc3dsa2NnZHRpa2NvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDU1NTM2MywiZXhwIjoyMDY2MTMxMzYzfQ.zSlz36DiKkMjAyiaJYPeIUpispPd2emykGxD07bP3WI'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
 
 // Cliente principal para operações normais
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -76,7 +76,7 @@ export interface Workshop {
   permite_convidados?: boolean
   imagem?: string
   gratuito?: boolean
-  instrutor_id?: string
+  nome_instrutor?: string
   created_at: string
   updated_at: string
 }
@@ -87,6 +87,22 @@ export interface Inscricao {
   user_id: string
   data_inscricao: string
   status_inscricao: 'pendente' | 'confirmada' | 'cancelada'
+  nome_completo?: string
+  idade?: number
+  telefone?: string
+  email?: string
+  professor_atual?: string
+  nome_responsavel?: string
+  telefone_responsavel?: string
+  email_responsavel?: string
+  tem_convidados?: boolean
+  participant_name?: string
+  participant_age?: number
+  participant_type?: 'principal' | 'convidado'
+  invited_by_user_id?: string
+  presente?: boolean
+  data_presenca?: string
+  total_participantes?: number
   created_at: string
   updated_at: string
 }

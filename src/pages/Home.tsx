@@ -8,23 +8,33 @@ import GlowCard from '@/components/GlowCard';
 import Carousel from '@/components/Carousel';
 import { useStore } from '@/store/useStore';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUserProfile } from '@/hooks/useUserProfile';
 import AuroraEffect from '@/components/AuroraEffect';
 
 export default function Home() {
+  // Para a página home, o carrossel deve mostrar TODAS as oficinas independente da unidade
+  // conforme especificado no todo.md: "O carrossel deve mostrar todas as oficinas, independentemente da unidade do aluno"
   const { workshops, fetchWorkshops, loading } = useStore();
-  const { user } = useAuth();
-  const { profile, loading: profileLoading } = useUserProfile();
+
+  console.log('🏠 Home render:', {
+    workshopsLength: workshops.length,
+    loadingWorkshops: loading.workshops,
+    workshops: workshops.map(w => ({ id: w.id, nome: w.nome, status: w.status }))
+  });
+  const { user, userProfile } = useAuth();
 
   useEffect(() => {
-    // Para a página home, o carrossel deve mostrar TODAS as oficinas independente da unidade
-    // conforme especificado no todo.md: "O carrossel deve mostrar todas as oficinas, independentemente da unidade do aluno"
-    // Só buscar se ainda não tivermos dados e não estiver carregando
-    if (workshops.length === 0 && !loading.workshops) {
-      console.log('🏠 Home: Buscando todas as oficinas para o carrossel');
-      fetchWorkshops(); // Sem filtro de unidade para mostrar todas as oficinas
-    }
-  }, []); // Remover dependências que causam loops
+    console.log('🏠 Home: Carregando workshops...');
+    fetchWorkshops();
+  }, []); // Removido fetchWorkshops das dependências para evitar loop infinito
+
+  // Debug logs
+  useEffect(() => {
+    console.log('🏠 Home: workshops atualizados:', {
+      total: workshops.length,
+      workshops: workshops.map(w => ({ id: w.id, nome: w.nome, status: w.status, vagas: w.vagas_disponiveis })),
+      featuredCount: featuredWorkshops.length
+    });
+  }, [workshops]);
   // Calcular dados dinâmicos das oficinas
   const getDynamicFeatures = () => {
     const totalWorkshops = workshops.filter(w => w.status === 'ativa').length;
@@ -78,11 +88,28 @@ export default function Home() {
 
   // Filtrar apenas workshops ativos e com vagas disponíveis para o carrossel
   const featuredWorkshops = workshops
-    .filter(workshop => 
-      workshop.status === 'ativa' && 
-      (workshop.vagas_disponiveis || 0) > 0
-    )
+    .filter(workshop => {
+      const isActive = workshop.status === 'ativa';
+      const hasSlots = (workshop.vagas_disponiveis || 0) > 0;
+      console.log('🔍 Filtrando workshop:', {
+        nome: workshop.nome,
+        status: workshop.status,
+        isActive,
+        vagas_disponiveis: workshop.vagas_disponiveis,
+        hasSlots,
+        passedFilter: isActive && hasSlots
+      });
+      return isActive && hasSlots;
+    })
     .slice(0, 8); // Limitar a 8 workshops para o carrossel
+
+  console.log('🎯 Featured workshops final:', {
+    totalWorkshops: workshops.length,
+    featuredCount: featuredWorkshops.length,
+    featured: featuredWorkshops.map(w => ({ id: w.id, nome: w.nome, status: w.status, vagas: w.vagas_disponiveis }))
+  });
+
+
 
   // Calcular data dinâmica baseada nos eventos
   const getEventDateRange = () => {
@@ -133,7 +160,7 @@ export default function Home() {
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden notch-safe-top">
         {/* Animated Background */}
         <div className="absolute inset-0 bg-gradient-hero animate-gradient" />
         
@@ -142,8 +169,17 @@ export default function Home() {
         <div className="absolute top-40 right-4 md:right-20 w-10 h-10 md:w-16 md:h-16 bg-purple-400/20 rounded-full animate-bounce-slow" />
         <div className="absolute bottom-40 left-4 md:left-20 w-8 h-8 md:w-12 md:h-12 bg-pink-400/20 rounded-full animate-pulse-slow" />
         
-        <div className="container mx-auto px-4 text-center relative z-10">
+        <div className="container mx-auto px-4 text-center relative z-10 notch-safe">
           <div className="max-w-4xl mx-auto">
+            {/* Logo */}
+            <div className="mb-3 md:mb-4">
+              <img 
+                src="/assets/Logo Kids e LA.png" 
+                alt="LA Music Week Logo" 
+                className="mx-auto w-40 h-40 sm:w-48 sm:h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 xl:w-72 xl:h-72 object-contain drop-shadow-2xl glow animate-logo-pulse"
+              />
+            </div>
+            
             <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 md:mb-6 glow font-inter leading-tight">
               LA Music Week
             </h1>
@@ -151,23 +187,13 @@ export default function Home() {
  
  Desperte sua paixão pela música com nossas oficinas exclusivas. Violão, piano, bateria, canto e muito mais te esperam!</p>
             
-            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center items-center px-2">
+            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center items-center px-2 pwa-touch-area">
               <Button
                 size="lg"
                 variant="primary"
-                icon={<ArrowRight className="w-5 h-5 md:w-6 md:h-6" />}
-                asChild
-                className="w-full sm:w-auto min-h-[48px] text-base md:text-lg"
-              >
-                <Link to="/inscricao">Quero me inscrever</Link>
-              </Button>
-              
-              <Button
-                size="lg"
-                variant="glass"
                 icon={<Calendar className="w-5 h-5 md:w-6 md:h-6" />}
                 asChild
-                className="w-full sm:w-auto min-h-[48px] text-base md:text-lg"
+                className="w-full sm:w-auto min-h-[48px] text-base md:text-lg btn-mobile-optimized touch-target"
               >
                 <Link to="/oficinas">Ver Oficinas</Link>
               </Button>
@@ -241,10 +267,17 @@ export default function Home() {
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
                 <p className="text-white/80">Carregando oficinas...</p>
               </div>
+            ) : workshops.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-white/80 text-lg">Nenhuma oficina encontrada.</p>
+                <p className="text-white/60 text-sm mt-2">Verifique a conexão com o banco de dados!</p>
+              </div>
             ) : featuredWorkshops.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-white/80 text-lg">Nenhuma oficina disponível no momento.</p>
-                <p className="text-white/60 text-sm mt-2">Verifique novamente em breve!</p>
+                <p className="text-white/80 text-lg">Nenhuma oficina ativa com vagas disponíveis.</p>
+                <p className="text-white/60 text-sm mt-2">Total de workshops: {workshops.length}</p>
+                <p className="text-white/60 text-sm">Workshops ativos: {workshops.filter(w => w.status === 'ativa').length}</p>
+                <p className="text-white/60 text-sm">Com vagas: {workshops.filter(w => (w.vagas_disponiveis || 0) > 0).length}</p>
               </div>
             ) : (
               <Carousel 
@@ -269,8 +302,14 @@ export default function Home() {
                       <GlowCard className="overflow-hidden group w-full h-full">
                         <div className="relative mb-6">
                           <img
-                            src={`https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent(instrumento + ' music workshop modern studio')}&image_size=landscape_4_3`}
+                            src={workshop.image && workshop.image.trim() !== '' ? workshop.image : '/assets/lamusic.png'}
                             alt={nome}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              if (target.src !== '/assets/lamusic.png') {
+                                target.src = '/assets/lamusic.png';
+                              }
+                            }}
                             className="w-full h-64 object-cover rounded-lg group-hover:scale-105 transition-transform duration-500"
                           />
 
@@ -306,7 +345,7 @@ export default function Home() {
                             </span>
                             <span className="flex items-center gap-2">
                               <Users className="w-4 h-4" />
-                              {vagas_disponiveis}/{capacidade} vagas
+                              {Math.max(0, vagas_disponiveis)}/{capacidade} vagas
                             </span>
                           </div>
                         </div>

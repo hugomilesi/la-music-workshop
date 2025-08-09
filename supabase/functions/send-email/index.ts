@@ -79,7 +79,7 @@ serve(async (req) => {
     }
 
     // Use Resend API with correct credentials
-    const resendApiKey = Deno.env.get('RESEND_API_KEY') || 're_2GeEPSNF_Ks8GZt547KLnXEE7NugjnKHC'
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
     const senderEmail = 'team@latecnology.com'
     const senderName = 'LA-Music'
 

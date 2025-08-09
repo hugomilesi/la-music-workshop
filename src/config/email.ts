@@ -28,15 +28,25 @@ export const EMAIL_CONFIG = {
     HOST: 'smtp.resend.com',
     PORT: 465,
     USER: 'resend',
-    PASSWORD: 're_2GeEPSNF_Ks8GZt547KLnXEE7NugjnKHC'
+    PASSWORD: import.meta.env.VITE_RESEND_API_KEY
   }
 };
 
 // Função para obter URLs baseadas no ambiente
 export function getEmailRedirectUrls() {
-  const isProduction = window.location.hostname === 'latecnology.com.br';
+  const isProduction = window.location.hostname !== 'localhost';
   
-  return isProduction ? EMAIL_CONFIG.PRODUCTION_URLS : EMAIL_CONFIG.DEVELOPMENT_URLS;
+  if (isProduction) {
+    return {
+      // Confirmação de email removida - não precisamos mais
+      RESET_PASSWORD: 'https://latecnology.com.br/reset-password'
+    };
+  }
+  
+  return {
+    // Confirmação de email removida - não precisamos mais
+    RESET_PASSWORD: 'http://localhost:5173/reset-password'
+  };
 }
 
 // Função para obter a URL base do site

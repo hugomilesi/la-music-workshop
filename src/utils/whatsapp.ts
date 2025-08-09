@@ -13,7 +13,7 @@ interface EvolutionAPIResponse {
 
 // Configurações da Evolution API (devem vir de variáveis de ambiente)
 const EVOLUTION_API_URL = import.meta.env.VITE_EVOLUTION_API_URL || 'https://evola.latecnology.com.br/';
-const EVOLUTION_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY || '61E65C47B0D4-44D1-919D-C6137E824D77';
+const EVOLUTION_API_KEY = import.meta.env.VITE_EVOLUTION_API_KEY;
 const EVOLUTION_INSTANCE = import.meta.env.VITE_EVOLUTION_INSTANCE || 'Hugo Teste';
 
 /**
@@ -72,6 +72,7 @@ export async function sendWhatsAppMessage(
  * @param studentName - Nome do aluno
  * @param workshopName - Nome da oficina
  * @param workshopDate - Data da oficina
+ * @param workshopLocation - Local da oficina
  * @param isGratuita - Se a oficina é gratuita
  * @returns Mensagem formatada
  */
@@ -79,13 +80,15 @@ export function createEnrollmentConfirmationMessage(
   studentName: string,
   workshopName: string,
   workshopDate: string,
+  workshopLocation: string,
   isGratuita: boolean = false
 ): string {
   const baseMessage = `🎵 *LA MUSIC WEEK* 🎵\n\n` +
-    `Olá! Sua inscrição foi confirmada com sucesso! ✅\n\n` +
+    `Olá ${studentName}! Sua inscrição foi confirmada com sucesso! ✅\n\n` +
     `👤 *Aluno:* ${studentName}\n` +
     `🎼 *Oficina:* ${workshopName}\n` +
-    `📅 *Data:* ${workshopDate}\n\n`;
+    `📅 *Data:* ${workshopDate}\n` +
+    `📍 *Local:* ${workshopLocation}\n\n`;
 
   if (isGratuita) {
     return baseMessage +
@@ -108,6 +111,7 @@ export function createEnrollmentConfirmationMessage(
  * @param studentName - Nome do aluno
  * @param workshopName - Nome da oficina
  * @param workshopDate - Data da oficina
+ * @param workshopLocation - Local da oficina
  * @param isGratuita - Se a oficina é gratuita
  * @returns Promise com resultado do envio
  */
@@ -116,12 +120,14 @@ export async function sendEnrollmentConfirmation(
   studentName: string,
   workshopName: string,
   workshopDate: string,
+  workshopLocation: string,
   isGratuita: boolean = false
 ): Promise<EvolutionAPIResponse> {
   const message = createEnrollmentConfirmationMessage(
     studentName,
     workshopName,
     workshopDate,
+    workshopLocation,
     isGratuita
   );
   
@@ -161,4 +167,52 @@ export async function sendRegistrationConfirmation(
   const message = createRegistrationConfirmationMessage(studentName);
   
   return await sendWhatsAppMessage(phoneNumber, message);
+}
+
+/**
+ * Formata um número de telefone para o padrão brasileiro
+ * @param phone - Número do telefone
+ * @returns Número formatado
+ */
+export function formatPhoneNumber(phone: string): string {
+  // Remove todos os caracteres não numéricos
+  const cleanPhone = phone.replace(/\D/g, '');
+  
+  // Se já tem código do país, retorna como está
+  if (cleanPhone.startsWith('55') && cleanPhone.length >= 12) {
+    return cleanPhone;
+  }
+  
+  // Se tem 11 dígitos (com DDD), adiciona código do país
+  if (cleanPhone.length === 11) {
+    return `55${cleanPhone}`;
+  }
+  
+  // Se tem 10 dígitos (sem o 9), adiciona o 9 e código do país
+  if (cleanPhone.length === 10) {
+    return `55${cleanPhone.slice(0, 2)}9${cleanPhone.slice(2)}`;
+  }
+  
+  return cleanPhone;
+}
+
+/**
+ * Valida se um número de telefone está no formato correto
+ * @param phone - Número do telefone
+ * @returns true se válido, false caso contrário
+ */
+export function validatePhoneNumber(phone: string): boolean {
+  const cleanPhone = phone.replace(/\D/g, '');
+  
+  // Deve ter entre 10 e 15 dígitos
+  if (cleanPhone.length < 10 || cleanPhone.length > 15) {
+    return false;
+  }
+  
+  // Se tem código do país 55, deve ter pelo menos 12 dígitos
+  if (cleanPhone.startsWith('55') && cleanPhone.length < 12) {
+    return false;
+  }
+  
+  return true;
 }

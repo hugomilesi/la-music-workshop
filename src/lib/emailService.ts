@@ -94,7 +94,7 @@ class EmailService {
   }
 
   /**
-   * Envia email de confirmação usando Edge Function
+   * Envia email de confirmação (desabilitado completamente)
    */
   async sendConfirmationEmail(
     userId: string, 
@@ -102,150 +102,49 @@ class EmailService {
     userName: string, 
     confirmationUrl?: string
   ): Promise<{ success: boolean; error?: string }> {
-    try {
-      console.log('📧 Enviando email de confirmação para:', email);
-      
-      const template = await this.getTemplate('email_confirmation_auth');
-      if (!template) {
-        console.error('Template de confirmação não encontrado');
-        return { success: false, error: 'Template não encontrado' };
-      }
-
-      // Gerar link de confirmação usando a função do banco de dados
-      const { data: linkData, error: linkError } = await supabase.rpc('generate_confirmation_link', {
-        user_email: email,
-        p_user_id: userId
-      });
-
-      if (linkError || !linkData) {
-        console.error('Erro ao gerar link de confirmação:', linkError);
-        return { success: false, error: 'Erro ao gerar link de confirmação' };
-      }
-
-      const finalConfirmationUrl = confirmationUrl || linkData;
-
-      const variables = {
-        nome_completo: userName,
-        confirmation_url: finalConfirmationUrl,
-        site_name: 'LA Music Week'
-      };
-
-      const htmlContent = this.replaceVariables(template.html_content, variables);
-      const textContent = template.text_content 
-        ? this.replaceVariables(template.text_content, variables)
-        : '';
-      const subject = this.replaceVariables(template.subject, variables);
-
-      // Enviar via Edge Function
-      const success = await this.sendViaEdgeFunction({
-        to: email,
-        subject,
-        html: htmlContent,
-        text: textContent,
-        templateName: 'email_confirmation_auth',
-        userId
-      });
-
-      if (success) {
-        console.log('✅ Email de confirmação enviado via Edge Function');
-        return { success: true };
-      } else {
-        console.error('❌ Falha ao enviar email via Edge Function');
-        return { success: false, error: 'Falha no envio' };
-      }
-    } catch (error) {
-      console.error('❌ Erro ao enviar email de confirmação:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
-    }
+    console.log('📧 Email de confirmação desabilitado - não enviando para:', email);
+    return { success: true }; // Retorna success para não quebrar o fluxo
   }
 
 
 
   /**
-   * Envia email de boas-vindas
+   * Verifica se o envio de emails está habilitado (sempre retorna false para desabilitar completamente)
+   */
+  private async isEmailEnabled(): Promise<boolean> {
+    // Emails completamente desabilitados por solicitação do usuário
+    console.log('📧 Envio de emails está completamente desabilitado');
+    return false;
+  }
+
+  /**
+   * Envia email de boas-vindas (desabilitado completamente)
    */
   async sendWelcomeEmail(userId: string, email: string, userName: string, unitName: string): Promise<boolean> {
-    try {
-      const template = await this.getTemplate('welcome_email');
-      if (!template) {
-        console.error('Template de boas-vindas não encontrado');
-        return false;
-      }
-
-      const variables = {
-        nome_completo: userName,
-        unit_name: unitName,
-        dashboard_url: `${this.baseUrl}/dashboard`
-      };
-
-      return await this.sendEmail({
-        to: email,
-        templateName: 'welcome_email',
-        variables,
-        userId
-      });
-    } catch (error) {
-      console.error('Erro ao enviar email de boas-vindas:', error);
-      return false;
-    }
+    console.log('📧 Email de boas-vindas desabilitado - não enviando para:', email);
+    return true; // Retorna true para não quebrar o fluxo
   }
 
   /**
-   * Envia email de recuperação de senha usando Edge Function
+   * Envia email de recuperação de senha (desabilitado completamente)
    */
   async sendPasswordResetEmail(email: string, userName: string): Promise<boolean> {
-    try {
-      console.log('📧 Enviando email de recuperação para:', email);
-      
-      const template = await this.getTemplate('password_reset');
-      if (!template) {
-        console.error('Template de recuperação não encontrado');
-        return false;
-      }
-
-      // Gerar token de reset
-      const resetToken = crypto.randomUUID();
-      const resetUrl = `${this.baseUrl}/reset-password?token=${resetToken}`;
-
-      const variables = {
-        nome_completo: userName,
-        reset_url: resetUrl,
-        site_name: 'LA Music Week'
-      };
-
-      const htmlContent = this.replaceVariables(template.html_content, variables);
-      const textContent = template.text_content 
-        ? this.replaceVariables(template.text_content, variables)
-        : '';
-      const subject = this.replaceVariables(template.subject, variables);
-
-      // Enviar via Edge Function
-      const success = await this.sendViaEdgeFunction({
-        to: email,
-        subject,
-        html: htmlContent,
-        text: textContent,
-        templateName: 'password_reset',
-        userId: undefined
-      });
-
-      if (success) {
-        console.log('✅ Email de recuperação enviado via Edge Function');
-        return true;
-      } else {
-        console.error('❌ Falha ao enviar email via Edge Function');
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ Erro ao enviar email de recuperação:', error);
-      return false;
-    }
+    console.log('📧 Email de recuperação de senha desabilitado - não enviando para:', email);
+    return true; // Retorna true para não quebrar o fluxo
   }
 
   /**
-   * Envia email usando Edge Function
+   * Envia email (desabilitado completamente)
    */
   private async sendEmail(params: SendEmailParams): Promise<boolean> {
+    console.log('📧 Envio de email desabilitado - não enviando para:', params.to);
+    return true; // Retorna true para não quebrar o fluxo
+  }
+
+  /**
+   * Método original de envio de email (mantido para referência)
+   */
+  private async sendEmailOriginal(params: SendEmailParams): Promise<boolean> {
     try {
       const template = await this.getTemplate(params.templateName);
       if (!template) {

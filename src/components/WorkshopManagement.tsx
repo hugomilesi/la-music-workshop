@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useStore } from '../store/useStore';
-import { Workshop } from '../store/useStore';
+import { useStore, Workshop } from '../store/useStore';
 import { Trash2, Edit, Plus, X, Save } from 'lucide-react';
 import SuccessMessage from './SuccessMessage';
+
 
 interface WorkshopFormData {
   nome: string;
@@ -37,7 +37,7 @@ interface WorkshopFormData {
 }
 
 const WorkshopManagement: React.FC = () => {
-  const { workshops, loading, fetchWorkshops, createWorkshop, updateWorkshop, deleteWorkshop } = useStore();
+  const { workshops, loading, createWorkshop, updateWorkshop, deleteWorkshop, fetchWorkshops } = useStore();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingWorkshop, setEditingWorkshop] = useState<Workshop | null>(null);
   const [successMessage, setSuccessMessage] = useState({ show: false, text: '' });
@@ -59,10 +59,8 @@ const WorkshopManagement: React.FC = () => {
   });
 
   useEffect(() => {
-    if (workshops.length === 0) {
-      fetchWorkshops();
-    }
-  }, []); // Remover dependência fetchWorkshops para evitar loops
+    fetchWorkshops();
+  }, []); // Removendo fetchWorkshops das dependências para evitar loop infinito
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -118,7 +116,7 @@ const WorkshopManagement: React.FC = () => {
         setSuccessMessage({ show: true, text: 'Workshop criado com sucesso!' });
       }
       resetForm();
-      fetchWorkshops();
+      // fetchWorkshops removido - o store já atualiza automaticamente
     } catch (error) {
       console.error('Erro ao salvar workshop:', error);
       setSuccessMessage({ show: true, text: 'Erro ao salvar workshop. Tente novamente.' });
@@ -138,7 +136,7 @@ const WorkshopManagement: React.FC = () => {
       preco: workshop.preco || workshop.price || 0,
       instrumento: workshop.instrumento || workshop.category || '',
       nivel: (workshop.nivel || workshop.level || 'iniciante') as 'iniciante' | 'intermediario' | 'avancado',
-      vagas_disponiveis: workshop.vagas_disponiveis || (workshop.maxParticipants - workshop.currentParticipants) || 0,
+      vagas_disponiveis: workshop.vagas_disponiveis || Math.max(0, (workshop.maxParticipants || 0) - (workshop.currentParticipants || 0)) || 0,
       status: (workshop.status || 'ativa') as 'ativa' | 'cancelada' | 'finalizada',
       unit_id: workshop.unit_id || '1',
       idade_minima: workshop.idade_minima || 0,
@@ -152,7 +150,7 @@ const WorkshopManagement: React.FC = () => {
       try {
         await deleteWorkshop(id);
         setSuccessMessage({ show: true, text: 'Workshop excluído com sucesso!' });
-        fetchWorkshops();
+        // fetchWorkshops removido - o store já atualiza automaticamente
       } catch (error) {
         console.error('Erro ao excluir workshop:', error);
         setSuccessMessage({ show: true, text: 'Erro ao excluir workshop. Tente novamente.' });

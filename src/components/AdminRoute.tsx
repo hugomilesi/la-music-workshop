@@ -56,7 +56,7 @@ export default function AdminRoute({ children }: AdminRouteProps) {
 
     // Se passou em todas as validações, esconder mensagem de acesso negado
     setShowAccessDenied(false);
-  }, [user, loading, isAdmin, userProfile, isValidating, isValidAdmin, validationError, navigate]);
+  }, [user?.id, loading, isAdmin, userProfile?.user_id, isValidating, isValidAdmin]); // Removidas dependências que podem causar loops
 
   // Mostrar loading enquanto verifica permissões
   if (loading || isValidating || !userProfile) {

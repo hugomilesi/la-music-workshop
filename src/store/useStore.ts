@@ -146,10 +146,12 @@ interface StoreState {
   // Auth
   user: User | null;
   
-  // Cache control
+  // Cache interno
   _workshopsCache: Map<string, Workshop[]>;
   _lastWorkshopsFetch: number;
   _workshopsFetching: boolean;
+  lastFetch?: number;
+  lastFetchKey?: string;
   
   // Actions
   setCurrentStep: (step: number) => void;
@@ -167,11 +169,15 @@ interface StoreState {
   fetchMessages: () => Promise<void>;
   fetchUsers: () => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
-  
-  // CRUD actions
+  cleanupOrphanedUsers: () => Promise<void>;
+  updateUser: (userId: string, updates: Partial<DatabaseUser>) => Promise<void>;
+  deleteRegistration: (registrationId: string) => Promise<void>;
+
+  // Workshop CRUD operations
   createWorkshop: (workshop: Omit<Workshop, 'id' | 'created_at' | 'updated_at'>) => Promise<any>;
   updateWorkshop: (id: string, updates: Partial<Workshop>) => Promise<any>;
   deleteWorkshop: (id: string) => Promise<void>;
+  // Funções de recálculo removidas - agora feito automaticamente via triggers no banco
   
   createReminder: (reminder: Omit<LembreteAutomatico, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateReminder: (id: string, updates: Partial<LembreteAutomatico>) => Promise<void>;
@@ -194,6 +200,7 @@ interface StoreState {
   // Auth actions
   login: (user: User) => void;
   logout: () => void;
+  preloadCriticalData: () => Promise<void>;
 }
 
 // Helper function to convert Supabase workshop to frontend format
@@ -205,19 +212,24 @@ const convertWorkshopFromSupabase = (workshop: any): Workshop => {
   // Extrair nome da unidade do relacionamento
   const unidadeNome = workshop.unidades?.nome || 'Unidade Principal';
   
+  // Priorizar imagem da oficina sobre placeholder padrão
+  const imageUrl = workshop.imagem && workshop.imagem.trim() !== '' 
+    ? workshop.imagem 
+    : '/assets/lamusic.png';
+
   return {
     id: workshop.id || '',
     title: workshop.nome || 'Workshop sem nome',
     description: workshop.descricao || 'Descrição não disponível',
-    instructor: 'Instrutor', // Pode ser expandido com tabela de instrutores
+    instructor: workshop.nome_instrutor || 'Instrutor não informado',
     duration,
     level: workshop.nivel || 'iniciante',
     category: workshop.instrumento || 'Geral',
     maxParticipants: workshop.capacidade || 0,
-    currentParticipants: (workshop.capacidade || 0) - (workshop.vagas_disponiveis || 0),
+    currentParticipants: 0, // Removido o cálculo do contador de inscritos
     price: workshop.preco || 0,
     rating: 4.5, // Pode ser expandido com sistema de avaliações
-    image: `https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent((workshop.instrumento || 'music') + '_lesson_modern_music_studio')}&image_size=landscape_4_3`,
+    image: imageUrl,
     schedule: [workshop.data_inicio ? new Date(workshop.data_inicio).toLocaleString('pt-BR') : 'Data não definida'],
     data_inicio: workshop.data_inicio || new Date().toISOString(),
     data_fim: workshop.data_fim || new Date().toISOString(),
@@ -230,7 +242,11 @@ const convertWorkshopFromSupabase = (workshop: any): Workshop => {
     descricao: workshop.descricao || 'Descrição não disponível',
     nivel: workshop.nivel || 'iniciante',
     capacidade: workshop.capacidade || 0,
-    preco: workshop.preco || 0
+    preco: workshop.preco || 0,
+    idade_minima: workshop.idade_minima,
+    idade_maxima: workshop.idade_maxima,
+    unit_id: workshop.unit_id,
+    permite_convidados: workshop.permite_convidados
   };
 };
 
@@ -264,7 +280,7 @@ export const useStore = create<StoreState>((set, get) => ({
   setCurrentStep: (step) => set({ currentStep: step }),
   
   addWorkshop: (workshopId) => set((state) => ({
-    selectedWorkshops: [...state.selectedWorkshops, workshopId]
+    selectedWorkshops: [workshopId] // Single workshop enrollment - replace any previous selection
   })),
   
   removeWorkshop: (workshopId) => set((state) => ({
@@ -289,27 +305,36 @@ export const useStore = create<StoreState>((set, get) => ({
     guests: []
   }),
   
+  // Funções de recálculo removidas - agora feito automaticamente via triggers no banco de dados
+
   // Data fetching actions
   fetchWorkshops: async (unitId?: string) => {
     const state = get();
     const cacheKey = unitId || 'all';
     const now = Date.now();
-    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos para reduzir chamadas
+    const CACHE_DURATION = 2 * 60 * 1000; // 2 minutos - cache mais curto para dados mais atualizados
     
     console.log('🔍 fetchWorkshops chamado com unitId:', unitId);
     
-    // Verificar se já está buscando
-    if (state._workshopsFetching) {
-      console.log('⏳ Já está buscando workshops, aguardando...');
+    // Verificar se já está buscando para a mesma chave
+    if (get()._workshopsFetching && get().lastFetchKey === cacheKey) {
+      console.log('⏳ Já está buscando workshops para a mesma chave, aguardando...');
       return;
     }
+
+    console.log('🗑️ Cache atual:', {
+      cacheSize: state._workshopsCache?.size || 0,
+      lastFetch: state._lastWorkshopsFetch,
+      currentTime: now,
+      cacheKey
+    });
     
-    // Verificar cache mais rigoroso
-    const cachedData = state._workshopsCache.get(cacheKey);
-    if (cachedData && (now - state._lastWorkshopsFetch) < CACHE_DURATION) {
+    // Verificar cache - usar cache válido para a chave específica
+    const cachedData = state._workshopsCache?.get(cacheKey);
+    if (cachedData && (now - state._lastWorkshopsFetch) < CACHE_DURATION && state.lastFetchKey === cacheKey) {
       console.log('📦 Usando dados do cache para:', cacheKey, 'workshops:', cachedData.length);
-      // Não fazer set se os dados já são os mesmos
-      if (state.workshops !== cachedData) {
+      // Só atualizar se os dados são diferentes
+      if (JSON.stringify(state.workshops) !== JSON.stringify(cachedData)) {
         set({ workshops: cachedData });
       }
       return;
@@ -323,20 +348,9 @@ export const useStore = create<StoreState>((set, get) => ({
     try {
       console.log('🚀 Iniciando consulta ao Supabase...');
       
-      let query = supabase
-        .from('workshops')
-        .select(`
-          *,
-          unidades(nome)
-        `)
-        .eq('status', 'ativa')
-        .order('created_at', { ascending: false });
-      
-      if (unitId) {
-        query = query.eq('unit_id', unitId);
-      }
-      
-      const { data, error } = await query;
+      // Consulta otimizada usando função RPC
+      const { data, error } = await supabase
+        .rpc('get_workshops_by_unit', { p_unit_id: unitId || null });
       
       console.log('📊 Resultado da query:', { data, error, dataLength: data?.length });
       
@@ -348,7 +362,7 @@ export const useStore = create<StoreState>((set, get) => ({
       if (!data) {
         console.warn('⚠️ Nenhum dado retornado, usando array vazio');
         const emptyWorkshops: Workshop[] = [];
-        set({ workshops: emptyWorkshops });
+        set({ workshops: emptyWorkshops, lastFetch: now, lastFetchKey: cacheKey });
         return;
       }
       
@@ -357,20 +371,20 @@ export const useStore = create<StoreState>((set, get) => ({
       // Transform data to match frontend interface
       const workshops = data.map(workshop => ({
         ...workshop,
-        unidade: workshop.unidades?.nome || 'Não informado',
+        unidade: workshop.unidade_nome || 'Não informado',
         title: workshop.nome,
         description: workshop.descricao,
-        instructor: 'Instrutor',
+        instructor: workshop.nome_instrutor || 'Instrutor não informado',
         duration: workshop.data_fim && workshop.data_inicio 
           ? `${Math.round((new Date(workshop.data_fim).getTime() - new Date(workshop.data_inicio).getTime()) / (1000 * 60 * 60))} horas`
           : '3 horas',
         level: workshop.nivel,
         category: workshop.instrumento,
         maxParticipants: workshop.capacidade,
-        currentParticipants: (workshop.capacidade || 0) - (workshop.vagas_disponiveis || 0),
+        currentParticipants: Math.max(0, (workshop.capacidade || 0) - (workshop.vagas_disponiveis || 0)),
         price: workshop.preco,
         rating: 4.5,
-        image: `https://trae-api-us.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent((workshop.instrumento || 'music') + '_lesson_modern_music_studio')}&image_size=landscape_4_3`,
+        image: workshop.imagem || '/assets/lamusic.png',
         schedule: [workshop.data_inicio ? new Date(workshop.data_inicio).toLocaleString('pt-BR') : 'Data não definida']
       }));
       
@@ -383,7 +397,9 @@ export const useStore = create<StoreState>((set, get) => ({
         return {
           workshops,
           _workshopsCache: newCache,
-          _lastWorkshopsFetch: now
+          _lastWorkshopsFetch: now,
+          lastFetch: now,
+          lastFetchKey: cacheKey
         };
       });
       
@@ -392,7 +408,7 @@ export const useStore = create<StoreState>((set, get) => ({
     } catch (error: any) {
       console.error('💥 Erro em fetchWorkshops:', error);
       const emptyWorkshops: Workshop[] = [];
-      set({ workshops: emptyWorkshops });
+      set({ workshops: emptyWorkshops, lastFetch: now, lastFetchKey: cacheKey });
       
     } finally {
       set((state) => ({ 
@@ -401,6 +417,8 @@ export const useStore = create<StoreState>((set, get) => ({
       }));
     }
   },
+
+
 
   // Workshop CRUD operations
   createWorkshop: async (workshopData: Omit<Workshop, 'id' | 'created_at' | 'updated_at'>) => {
@@ -423,7 +441,10 @@ export const useStore = create<StoreState>((set, get) => ({
           status: workshopData.status || 'ativa',
           unit_id: workshopData.unit_id,
           idade_minima: workshopData.idade_minima || 0,
-          idade_maxima: workshopData.idade_maxima || 100
+          idade_maxima: workshopData.idade_maxima || 100,
+          permite_convidados: workshopData.permite_convidados || false,
+          imagem: (workshopData as any).imagem || workshopData.image || '',
+          nome_instrutor: (workshopData as any).nome_instrutor || null
         })
         .select()
         .single();
@@ -434,6 +455,14 @@ export const useStore = create<StoreState>((set, get) => ({
       }
 
       console.log('Workshop created successfully:', data);
+      
+      // Limpar cache para forçar nova busca
+      set((state) => ({
+        _workshopsCache: new Map(),
+        _lastWorkshopsFetch: 0,
+        lastFetch: 0,
+        lastFetchKey: undefined
+      }));
       
       // Refresh workshops list
       await get().fetchWorkshops();
@@ -465,6 +494,9 @@ export const useStore = create<StoreState>((set, get) => ({
       if (workshopData.unit_id) updateData.unit_id = workshopData.unit_id;
       if (workshopData.idade_minima !== undefined) updateData.idade_minima = workshopData.idade_minima;
       if (workshopData.idade_maxima !== undefined) updateData.idade_maxima = workshopData.idade_maxima;
+      if (workshopData.permite_convidados !== undefined) updateData.permite_convidados = workshopData.permite_convidados;
+      if ((workshopData as any).imagem !== undefined || workshopData.image !== undefined) updateData.imagem = (workshopData as any).imagem || workshopData.image || '';
+      if ((workshopData as any).nome_instrutor !== undefined) updateData.nome_instrutor = (workshopData as any).nome_instrutor;
       
       const { data, error } = await supabase
         .from('workshops')
@@ -479,6 +511,14 @@ export const useStore = create<StoreState>((set, get) => ({
       }
 
       console.log('Workshop updated successfully:', data);
+      
+      // Limpar cache para forçar nova busca
+      set((state) => ({
+        _workshopsCache: new Map(),
+        _lastWorkshopsFetch: 0,
+        lastFetch: 0,
+        lastFetchKey: undefined
+      }));
       
       // Refresh workshops list
       await get().fetchWorkshops();
@@ -518,6 +558,14 @@ export const useStore = create<StoreState>((set, get) => ({
 
       console.log('Workshop deleted successfully');
       
+      // Limpar cache para forçar nova busca
+      set((state) => ({
+        _workshopsCache: new Map(),
+        _lastWorkshopsFetch: 0,
+        lastFetch: 0,
+        lastFetchKey: undefined
+      }));
+      
       // Refresh workshops list
       await get().fetchWorkshops();
       
@@ -534,40 +582,78 @@ export const useStore = create<StoreState>((set, get) => ({
         .from('inscricoes')
         .select(`
           *,
-          workshops:workshop_id(*),
+          workshops:workshop_id(
+            *,
+            unidades:unit_id(nome)
+          ),
+          users:user_id(
+            *,
+            unidades:unit_id(nome)
+          ),
           pagamentos(*)
         `)
-        .order('created_at', { ascending: false });
+        .order('data_inscricao', { ascending: false });
       
       if (error) throw error;
       
-      // Convert to frontend format (simplified for now)
-      const registrations: Registration[] = data?.map(item => ({
-        id: item.id,
-        student: { 
-          name: 'Estudante', 
-          age: 16, 
-          email: '', 
-          phone: '', 
-          school: '', 
-          musicalExperience: '', 
-          medicalInfo: '',
-          unidade: '',
-          turma: '',
-          professorAtual: '',
-          guardianPhone: '',
-          guardianEmail: '',
-          convidado: false,
-          termos: false
-        },
-        guardian: { name: 'Responsável', email: '', phone: '', relationship: '', address: '', emergencyContact: '' },
-        workshopIds: [item.workshop_id],
-        status: item.status_inscricao,
-        createdAt: item.created_at,
-        totalAmount: item.pagamentos?.[0]?.valor || 0,
-        workshop_id: item.workshop_id,
-        user_id: item.user_id
-      })) || [];
+      console.log('Dados de inscrições carregados:', data);
+      console.log('Total de inscrições encontradas:', data?.length || 0);
+      
+      // Convert to frontend format with real data
+      const registrations: Registration[] = data?.map(item => {
+        // Priorizar dados da oficina para unidade, depois do usuário
+        const unidadeNome = item.workshops?.unidades?.nome || 
+                           item.users?.unidades?.nome || 
+                           'Unidade não definida';
+        
+        console.log('Processando inscrição:', {
+          id: item.id,
+          user_id: item.user_id,
+          unidade: unidadeNome,
+          userData: item.users,
+          workshopData: item.workshops,
+          workshopUnidade: item.workshops?.unidades,
+          userUnidade: item.users?.unidades
+        });
+        
+        return {
+          id: item.id,
+          student: { 
+            name: item.participant_name || item.users?.nome_completo || 'Participante', 
+            age: item.participant_age || 18, 
+            email: item.email_responsavel || item.users?.email || '', 
+            phone: item.telefone_responsavel || item.users?.telefone || '', 
+            school: '', 
+            musicalExperience: '', 
+            medicalInfo: '',
+            unidade: unidadeNome,
+            turma: '',
+            professorAtual: '',
+            guardianPhone: item.telefone_responsavel || item.users?.telefone || '',
+            guardianEmail: item.email_responsavel || item.users?.email || '',
+            convidado: item.participant_type === 'convidado',
+            termos: true
+          },
+          guardian: { 
+            name: item.nome_responsavel || item.users?.nome_completo || 'Responsável', 
+            email: item.email_responsavel || item.users?.email || '', 
+            phone: item.telefone_responsavel || item.users?.telefone || '', 
+            relationship: 'Responsável', 
+            address: '', 
+            emergencyContact: '' 
+          },
+          workshopIds: [item.workshop_id],
+          status: item.status_inscricao,
+          createdAt: item.data_inscricao,
+          totalAmount: item.pagamentos?.[0]?.valor || item.workshops?.preco || 0,
+          workshop_id: item.workshop_id,
+          user_id: item.user_id,
+          attendance: item.presente || false,
+          guestsCount: (item.total_participantes || 1) - 1
+        };
+      }) || [];
+      
+      console.log('Inscrições processadas:', registrations.map(r => ({ id: r.id, unidade: r.student.unidade })));
       
       set({ registrations });
     } catch (error) {
@@ -733,20 +819,28 @@ export const useStore = create<StoreState>((set, get) => ({
 
   createRegistration: async (workshopId, userId, participantData?: { name?: string; age?: number }) => {
     try {
+      console.log('🚀 Iniciando createRegistration:', { workshopId, userId, participantData });
+      
       // Verificar se o workshop existe e tem vagas
       const workshop = get().workshops.find(w => w.id === workshopId);
+      console.log('📋 Workshop encontrado:', workshop);
+      
       if (!workshop) {
+        console.error('❌ Workshop não encontrado');
         throw new Error('Workshop não encontrado');
       }
       
       if (workshop.vagas_disponiveis <= 0) {
+        console.error('❌ Workshop lotado');
         throw new Error('Workshop lotado');
       }
       
       if (workshop.status !== 'ativa') {
+        console.error('❌ Workshop não está ativo');
         throw new Error('Workshop não está ativo');
       }
       
+      console.log('🔍 Buscando usuário na tabela users...');
       // Buscar o ID do usuário na tabela users baseado no auth.uid()
       const { data: userRecord, error: userError } = await supabase
         .from('users')
@@ -754,13 +848,17 @@ export const useStore = create<StoreState>((set, get) => ({
         .eq('user_id', userId)
         .single();
       
+      console.log('👤 Resultado da busca do usuário:', { userRecord, userError });
+      
       if (userError) {
-        console.error('Erro ao buscar usuário:', userError);
+        console.error('❌ Erro ao buscar usuário:', userError);
         throw new Error('Usuário não encontrado. Faça login novamente.');
       }
       
       const userTableId = userRecord.id;
+      console.log('✅ ID do usuário na tabela:', userTableId);
       
+      console.log('🔍 Verificando inscrições existentes...');
       // Verificar se o usuário já está inscrito (apenas inscrições ativas)
       const { data: existingRegistration, error: checkError } = await supabase
         .from('inscricoes')
@@ -770,13 +868,23 @@ export const useStore = create<StoreState>((set, get) => ({
         .neq('status_inscricao', 'cancelada') // Excluir inscrições canceladas
         .maybeSingle();
       
+      console.log('📝 Resultado da verificação de inscrição:', { existingRegistration, checkError });
+      
       if (checkError) {
-        console.error('Erro ao verificar inscrição existente:', checkError);
+        console.error('❌ Erro ao verificar inscrição existente:', checkError);
         throw new Error('Erro ao verificar inscrição existente');
       }
       
       if (existingRegistration) {
+        console.error('❌ Usuário já inscrito');
         throw new Error('Você já está inscrito neste workshop');
+      }
+      
+      console.log('✅ Usuário não possui inscrição ativa neste workshop');
+      
+      // Verificar vagas disponíveis
+      if (workshop.vagas_disponiveis <= 0) {
+        throw new Error('Não há vagas disponíveis para este workshop');
       }
       
       // Buscar dados do usuário se não fornecidos
@@ -804,9 +912,31 @@ export const useStore = create<StoreState>((set, get) => ({
         }
       }
       
+      // Validar restrições de idade antes da inserção
+      if (workshop.idade_minima && participantAge < workshop.idade_minima) {
+        throw new Error(`Idade mínima para este workshop é ${workshop.idade_minima} anos. Sua idade: ${participantAge} anos.`);
+      }
+      
+      if (workshop.idade_maxima && participantAge > workshop.idade_maxima) {
+        throw new Error(`Idade máxima para este workshop é ${workshop.idade_maxima} anos. Sua idade: ${participantAge} anos.`);
+      }
+      
       // Determinar status da inscrição baseado no preço da oficina
       const statusInscricao = workshop.preco === 0 ? 'confirmada' : 'pendente';
       
+      console.log('💾 Preparando dados para inserção:', {
+        workshop_id: workshopId,
+        user_id: userTableId,
+        data_inscricao: new Date().toISOString(),
+        status_inscricao: statusInscricao,
+        participant_name: participantName || 'Participante',
+        participant_age: participantAge || 18,
+        participant_type: 'principal',
+        total_participantes: 1,
+        tem_convidados: false
+      });
+      
+      console.log('🚀 Inserindo inscrição na base de dados...');
       // Criar a inscrição
       const { data, error } = await supabase
         .from('inscricoes')
@@ -824,18 +954,17 @@ export const useStore = create<StoreState>((set, get) => ({
         .select()
         .single();
       
-      if (error) throw error;
+      console.log('📊 Resultado da inserção:', { data, error });
       
-      // Atualizar vagas disponíveis
-      const { error: updateError } = await supabase
-        .from('workshops')
-        .update({ 
-          vagas_disponiveis: workshop.vagas_disponiveis - 1,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', workshopId);
+      if (error) {
+        console.error('❌ Erro ao criar inscrição:', error);
+        console.error('❌ Detalhes do erro:', JSON.stringify(error, null, 2));
+        throw error;
+      }
       
-      if (updateError) throw updateError;
+      console.log('✅ Inscrição criada com sucesso:', data);
+      
+      // Vagas são atualizadas automaticamente via triggers no banco de dados
       
       // Criar registro de pagamento pendente apenas se o workshop não for gratuito
       if (workshop.preco > 0) {
@@ -870,6 +999,7 @@ export const useStore = create<StoreState>((set, get) => ({
               participantName || currentUser.nome_completo || 'Participante',
               workshop.nome,
               workshopDate,
+              workshop.local || 'Local a definir',
               true // é gratuita
             );
             
@@ -887,31 +1017,52 @@ export const useStore = create<StoreState>((set, get) => ({
       
       return data;
     } catch (error: any) {
-      console.error('Erro ao criar inscrição:', error);
-      
-      // Tratamento específico para erros de foreign key constraint
-      if (error.message?.includes('foreign key constraint') || 
-          error.message?.includes('inscricoes_user_id_fkey')) {
-        throw new Error('Erro interno do sistema. Tente fazer login novamente.');
+        console.error('Erro ao criar inscrição:', error);
+        
+        // Tratamento específico para erros de foreign key constraint
+        if (error.message?.includes('foreign key constraint') || 
+            error.message?.includes('inscricoes_user_id_fkey')) {
+          throw new Error('Erro interno do sistema. Tente fazer login novamente.');
+        }
+        
+        // Tratamento para outros erros comuns
+        if (error.message?.includes('duplicate key')) {
+          throw new Error('Você já está inscrito neste workshop.');
+        }
+        
+        if (error.message?.includes('permission denied')) {
+          throw new Error('Você não tem permissão para realizar esta ação. Faça login novamente.');
+        }
+        
+        // Tratamento específico para erros de validação de idade do trigger
+        if (error.message?.includes('Idade mínima para o workshop') || 
+            error.message?.includes('Idade máxima para o workshop')) {
+          // Extrair a mensagem específica do erro do trigger
+          const ageErrorMatch = error.message.match(/Idade (mínima|máxima) para o workshop "([^"]+)" é (\d+) anos\. Idade informada: (\d+) anos\./); 
+          if (ageErrorMatch) {
+            const [, tipo, nomeWorkshop, idadeRequerida, idadeInformada] = ageErrorMatch;
+            throw new Error(`Idade ${tipo} para a oficina "${nomeWorkshop}" é ${idadeRequerida} anos. Sua idade: ${idadeInformada} anos.`);
+          } else {
+            throw new Error('A idade do participante não atende aos requisitos desta oficina.');
+          }
+        }
+        
+        // Tratamento genérico para outros erros de restrição de idade
+        if (error.message?.includes('check_idade_minima') || 
+            error.message?.includes('check_idade_maxima') ||
+            error.message?.includes('idade_minima') ||
+            error.message?.includes('idade_maxima')) {
+          throw new Error('Sua idade não atende aos requisitos deste workshop. Verifique as restrições de idade.');
+        }
+        
+        // Se for um erro conhecido, manter a mensagem
+        if (error.message && !error.message.includes('violates') && !error.message.includes('constraint')) {
+          throw error;
+        }
+        
+        // Para outros erros técnicos, usar mensagem genérica
+        throw new Error('Erro ao processar inscrição. Tente novamente mais tarde.');
       }
-      
-      // Tratamento para outros erros comuns
-      if (error.message?.includes('duplicate key')) {
-        throw new Error('Você já está inscrito neste workshop.');
-      }
-      
-      if (error.message?.includes('permission denied')) {
-        throw new Error('Você não tem permissão para realizar esta ação. Faça login novamente.');
-      }
-      
-      // Se for um erro conhecido, manter a mensagem
-      if (error.message && !error.message.includes('violates') && !error.message.includes('constraint')) {
-        throw error;
-      }
-      
-      // Para outros erros técnicos, usar mensagem genérica
-      throw new Error('Erro ao processar inscrição. Tente novamente mais tarde.');
-    }
   },
 
   // Attendance and guests management
@@ -976,17 +1127,36 @@ export const useStore = create<StoreState>((set, get) => ({
   // Guest management
   fetchGuests: async (registrationId?: string) => {
     try {
-      let query = supabase.from('convidados').select('*');
+      let query = supabase
+        .from('convidados')
+        .select(`
+          *,
+          inscricoes!inner(
+            participant_name,
+            workshops!inner(
+              nome,
+              nome_instrutor
+            )
+          )
+        `);
       
       if (registrationId) {
         query = query.eq('inscricao_id', registrationId);
       }
       
-      const { data, error } = await query.order('created_at', { ascending: true });
+      const { data, error } = await query.order('created_at', { ascending: false });
       
       if (error) throw error;
       
-      return data || [];
+      // Transformar os dados para facilitar o uso no frontend
+      const transformedData = (data || []).map(guest => ({
+        ...guest,
+        aluno_responsavel: guest.inscricoes?.participant_name,
+        oficina_nome: guest.inscricoes?.workshops?.nome,
+        nome_instrutor: guest.inscricoes?.workshops?.nome_instrutor
+      }));
+      
+      return transformedData;
     } catch (error) {
       console.error('Erro ao buscar convidados:', error);
       throw error;
@@ -1007,9 +1177,43 @@ export const useStore = create<StoreState>((set, get) => ({
       if (error) throw error;
       
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao criar convidado:', error);
-      throw error;
+      
+      // Tratamento específico para erros de validação de idade do trigger de convidados
+      if (error.message?.includes('Idade mínima para o workshop') || 
+          error.message?.includes('Idade máxima para o workshop')) {
+        // Extrair a mensagem específica do erro do trigger
+        const ageErrorMatch = error.message.match(/Idade (mínima|máxima) para o workshop "([^"]+)" é (\d+) anos\. Idade informada: (\d+) anos\./); 
+        if (ageErrorMatch) {
+          const [, tipo, nomeWorkshop, idadeRequerida, idadeInformada] = ageErrorMatch;
+          throw new Error(`Idade ${tipo} para a oficina "${nomeWorkshop}" é ${idadeRequerida} anos. Idade do convidado: ${idadeInformada} anos.`);
+        } else {
+          throw new Error('A idade do convidado não atende aos requisitos desta oficina.');
+        }
+      }
+      
+      // Tratamento para erro de constraint de idade (código 23514)
+      if (error.code === '23514' && error.message?.includes('convidados_idade_check')) {
+        throw new Error('A idade do convidado deve estar dentro dos limites permitidos para esta oficina.');
+      }
+      
+      // Tratamento para outros erros comuns
+      if (error.message?.includes('foreign key constraint')) {
+        throw new Error('Erro interno do sistema. Verifique se a inscrição ainda existe.');
+      }
+      
+      if (error.message?.includes('permission denied')) {
+        throw new Error('Você não tem permissão para adicionar convidados. Faça login novamente.');
+      }
+      
+      // Se for um erro conhecido, manter a mensagem
+      if (error.message && !error.message.includes('violates') && !error.message.includes('constraint')) {
+        throw error;
+      }
+      
+      // Para outros erros técnicos, usar mensagem genérica
+      throw new Error('Erro ao adicionar convidado. Tente novamente mais tarde.');
     }
   },
 
@@ -1048,94 +1252,239 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
+  // Função para pré-carregar dados críticos após login
+  preloadCriticalData: async () => {
+    try {
+      console.log('🚀 Pré-carregando dados críticos...');
+      
+      // Carregar workshops em paralelo (dados mais leves)
+      const workshopsPromise = get().fetchWorkshops();
+      
+      // Aguardar workshops primeiro (mais rápido)
+      await workshopsPromise;
+      
+      console.log('✅ Dados críticos pré-carregados com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao pré-carregar dados críticos:', error);
+    }
+  },
+
   // User management
   fetchUsers: async () => {
     try {
+      console.log('🔍 fetchUsers: Iniciando busca de usuários...');
       set((state) => ({ loading: { ...state.loading, users: true } }));
       
-      const { data, error } = await supabase
+      console.log('🔍 fetchUsers: Fazendo consulta com supabaseAdmin...');
+      console.log('🔍 fetchUsers: URL do Supabase:', supabaseAdmin.supabaseUrl);
+      console.log('🔍 fetchUsers: Chave sendo usada:', supabaseAdmin.supabaseKey?.substring(0, 20) + '...');
+      
+      const { data, error } = await supabaseAdmin
         .from('users')
-        .select('*')
+        .select('id, user_id, nome_completo, email, user_type, telefone, data_nascimento, created_at, updated_at, email_confirmed')
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      console.log('🔍 fetchUsers: Resultado da consulta:', { 
+        dataLength: data?.length, 
+        error, 
+        firstUser: data?.[0] 
+      });
       
+      if (error) {
+        console.error('❌ fetchUsers: Erro na consulta:', error);
+        throw error;
+      }
+      
+      console.log('✅ fetchUsers: Dados recebidos:', data?.length, 'usuários');
+      console.log('📋 fetchUsers: Primeiros 3 usuários:', data?.slice(0, 3));
       set({ users: data || [] });
+      
+      console.log('✅ fetchUsers: Estado atualizado com sucesso');
     } catch (error) {
-      console.error('Erro ao buscar usuários:', error);
+      console.error('💥 fetchUsers: Erro geral:', error);
       throw error;
     } finally {
       set((state) => ({ loading: { ...state.loading, users: false } }));
+      console.log('🔍 fetchUsers: Loading finalizado');
     }
   },
 
   deleteUser: async (userId: string) => {
     try {
-      // Primeiro, buscar o user_id do auth.users para deletar do auth depois
-      const { data: userData, error: userError } = await supabase
+      console.log('🗑️ Iniciando remoção do usuário ID:', userId);
+      
+      // Buscar dados do usuário para logs (sem usar .single() que pode falhar com RLS)
+      const { data: userData } = await supabase
         .from('users')
-        .select('user_id, email')
+        .select('user_id, email, nome_completo')
         .eq('id', userId)
-        .single();
+        .limit(1);
       
-      if (userError) {
-        console.error('Usuário não encontrado na tabela public.users:', userError);
-        // Se o usuário não existe no public, apenas atualizar o estado local
-        set((state) => ({
-          users: state.users.filter(user => user.id !== userId)
-        }));
-        return;
-      }
-      
-      console.log('Iniciando remoção completa do usuário:', userData.email);
+      const userInfo = userData && userData.length > 0 ? userData[0] : null;
+      console.log('👤 Tentando remover usuário:', userInfo?.email || 'Email não encontrado');
       
       // Usar a função SQL para deletar completamente do public schema
       const { data, error: functionError } = await supabase
         .rpc('delete_user_completely', { user_table_id: userId });
       
       if (functionError) {
-        console.error('Erro na função de remoção completa:', functionError);
-        throw functionError;
+        console.error('❌ Erro na função de remoção completa:', functionError);
+        throw new Error(`Erro ao remover usuário: ${functionError.message}`);
       }
       
-      console.log('Usuário removido do schema public com sucesso');
+      console.log('✅ Usuário removido do schema public com sucesso');
       
-      // Tentar deletar do auth.users usando service role
-      try {
-        const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(
-          userData.user_id
-        );
-        
-        if (authDeleteError) {
-          // Se o erro for "User not found", significa que já foi removido
-          if (authDeleteError.message.includes('User not found')) {
-            console.log('Usuário já havia sido removido do auth.users anteriormente');
+      // Tentar deletar do auth.users usando service role (se temos o user_id)
+      if (userInfo?.user_id) {
+        try {
+          const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(
+            userInfo.user_id
+          );
+          
+          if (authDeleteError) {
+            // Se o erro for "User not found", significa que já foi removido
+            if (authDeleteError.message.includes('User not found')) {
+              console.log('ℹ️ Usuário já havia sido removido do auth.users anteriormente');
+            } else {
+              console.warn('⚠️ Erro ao deletar usuário do auth.users (não crítico):', authDeleteError);
+              // Não lançar erro aqui, pois o usuário já foi removido do public
+            }
           } else {
-            console.error('Erro ao deletar usuário do auth.users:', authDeleteError);
-            // Não lançar erro aqui, pois o usuário já foi removido do public
+            console.log('✅ Usuário removido completamente do auth.users');
           }
-        } else {
-          console.log('Usuário removido completamente do auth.users');
+        } catch (authError) {
+          console.warn('⚠️ Erro ao tentar deletar do auth.users (não crítico):', authError);
+          // Não lançar erro aqui, pois o usuário já foi removido do public
         }
-      } catch (authError) {
-        console.error('Erro ao tentar deletar do auth.users:', authError);
-        // Não lançar erro aqui, pois o usuário já foi removido do public
       }
       
-      // Atualizar estado local
+      // Atualizar estado local removendo o usuário
       set((state) => ({
         users: state.users.filter(user => user.id !== userId)
       }));
       
-      console.log('Remoção completa do usuário finalizada com sucesso');
+      console.log('🎉 Remoção completa do usuário finalizada com sucesso');
       
     } catch (error) {
-      console.error('Erro ao deletar usuário:', error);
+      console.error('💥 Erro ao deletar usuário:', error);
+      throw error;
+    }
+  },
+
+  // Função para limpar usuários órfãos e sincronizar as tabelas
+  cleanupOrphanedUsers: async () => {
+    try {
+      console.log('Iniciando limpeza de usuários órfãos...');
+      
+      // Buscar usuários órfãos em auth.users
+      const { data: orphanedAuthUsers, error: orphanError } = await supabase
+        .rpc('get_orphaned_auth_users');
+      
+      if (orphanError) {
+        console.error('Erro ao buscar usuários órfãos:', orphanError);
+        return;
+      }
+      
+      if (orphanedAuthUsers && orphanedAuthUsers.length > 0) {
+        console.log(`Encontrados ${orphanedAuthUsers.length} usuários órfãos em auth.users`);
+        
+        for (const orphan of orphanedAuthUsers) {
+          try {
+            const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(orphan.id);
+            if (deleteError) {
+              console.error(`Erro ao deletar usuário órfão ${orphan.email}:`, deleteError);
+            } else {
+              console.log(`Usuário órfão ${orphan.email} removido com sucesso`);
+            }
+          } catch (error) {
+            console.error(`Erro ao processar usuário órfão ${orphan.email}:`, error);
+          }
+        }
+      } else {
+        console.log('Nenhum usuário órfão encontrado');
+      }
+      
+    } catch (error) {
+      console.error('Erro na limpeza de usuários órfãos:', error);
+    }
+  },
+
+  updateUser: async (userId: string, updates: Partial<DatabaseUser>) => {
+    try {
+      console.log('🔄 Atualizando usuário:', userId, updates);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Erro ao atualizar usuário:', error);
+        throw error;
+      }
+      
+      console.log('✅ Usuário atualizado com sucesso:', data);
+      
+      // Atualizar estado local
+      set((state) => ({
+        users: state.users.map(user => 
+          user.id === userId ? { ...user, ...data } : user
+        )
+      }));
+      
+    } catch (error) {
+      console.error('💥 Erro em updateUser:', error);
       throw error;
     }
   },
 
   // Auth actions
+  deleteRegistration: async (registrationId: string) => {
+    try {
+      console.log('🗑️ Deletando inscrição:', registrationId);
+      
+      // Buscar dados da inscrição antes de deletar
+      const { data: registration, error: fetchError } = await supabase
+        .from('inscricoes')
+        .select('workshop_id, user_id')
+        .eq('id', registrationId)
+        .single();
+      
+      if (fetchError) {
+        console.error('Erro ao buscar inscrição:', fetchError);
+        throw new Error('Inscrição não encontrada');
+      }
+      
+      // Deletar a inscrição
+      const { error: deleteError } = await supabase
+        .from('inscricoes')
+        .delete()
+        .eq('id', registrationId);
+      
+      if (deleteError) {
+        console.error('Erro ao deletar inscrição:', deleteError);
+        throw deleteError;
+      }
+      
+      // Vagas são atualizadas automaticamente via triggers no banco de dados
+      
+      console.log('✅ Inscrição deletada com sucesso!');
+      
+      // Recarregar dados
+      await get().fetchRegistrations();
+      await get().fetchWorkshops();
+      
+    } catch (error) {
+      console.error('💥 Erro em deleteRegistration:', error);
+      throw error;
+    }
+  },
+
   login: (user) => set({ user }),
   logout: () => set({ user: null })
 }));

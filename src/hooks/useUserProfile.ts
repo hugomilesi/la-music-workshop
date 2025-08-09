@@ -1,88 +1,56 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 
-interface UserProfile {
-  id: string;
-  user_id: string;
-  email: string;
-  nome_completo: string;
-  telefone: string;
-  data_nascimento: string;
-  unit_id: string;
-  user_type: string;
-  email_confirmed: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
+/**
+ * Hook para gerenciar o perfil do usuário
+ * Agora é apenas um wrapper para o AuthContext
+ */
 export function useUserProfile() {
-  const { user } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const fetchingRef = useRef(false);
+  const { user, userProfile, isLoadingProfile, loadUserProfile } = useAuth();
   const lastUserIdRef = useRef<string | null>(null);
-
-  const fetchProfile = async () => {
-    if (!user?.id || fetchingRef.current) {
-      return;
-    }
-    
-    console.log('🔄 useUserProfile: Refetch perfil para usuário:', user.id);
-    
-    fetchingRef.current = true;
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Usuário não encontrado na tabela users
-          console.log('❌ useUserProfile: Usuário não encontrado na tabela users (refetch)');
-          setProfile(null);
-        } else {
-          throw error;
-        }
-      } else {
-        console.log('✅ useUserProfile: Perfil encontrado (refetch):', data.nome_completo);
-        setProfile(data);
-      }
-    } catch (err) {
-      console.error('❌ useUserProfile: Erro ao buscar perfil do usuário (refetch):', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
-    } finally {
-      fetchingRef.current = false;
-      setLoading(false);
-    }
-  };
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
+    // Se não há usuário, limpar referências
     if (!user) {
-      console.log('❌ useUserProfile: Nenhum usuário, limpando perfil');
-      setProfile(null);
-      setLoading(false);
-      setError(null);
       lastUserIdRef.current = null;
+      hasLoadedRef.current = false;
       return;
     }
 
-    // Evitar buscar o mesmo perfil múltiplas vezes
-    if (lastUserIdRef.current === user.id) {
-      console.log('⏭️ useUserProfile: Perfil já carregado para este usuário:', user.id);
+    // Se é o mesmo usuário e já carregou ou tem perfil, não fazer nada
+    if (lastUserIdRef.current === user.id && (userProfile?.user_id === user.id || hasLoadedRef.current)) {
       return;
     }
 
-    console.log('🔄 useUserProfile: Usuário mudou, buscando perfil:', user.id);
-    lastUserIdRef.current = user.id;
-    fetchProfile();
-  }, [user?.id])
+    // Se já está carregando, aguardar
+    if (isLoadingProfile) {
+      return;
+    }
 
-  return { profile, loading, error, refetch: fetchProfile };
+    // Carregar perfil apenas se necessário e se não foi tentado antes
+    if (!userProfile || userProfile.user_id !== user.id) {
+      // Verificar se já tentamos carregar este usuário
+      if (!hasLoadedRef.current || lastUserIdRef.current !== user.id) {
+        lastUserIdRef.current = user.id;
+        hasLoadedRef.current = true;
+        loadUserProfile(user.id);
+      }
+    }
+  }, [user?.id, userProfile?.user_id, isLoadingProfile]); // Removido loadUserProfile das dependências para evitar loops
+
+  return {
+    user,
+    userProfile,
+    profile: userProfile, // Alias para compatibilidade
+    isLoading: isLoadingProfile,
+    loading: isLoadingProfile, // Alias para compatibilidade
+    refetch: () => {
+      if (user) {
+        console.log('🔄 useUserProfile: Refetch solicitado para:', user.id);
+        hasLoadedRef.current = false;
+        loadUserProfile(user.id);
+      }
+    }
+  };
 }
